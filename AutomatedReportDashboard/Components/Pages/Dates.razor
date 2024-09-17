@@ -1,4 +1,6 @@
 ﻿@page "/dates"
+@inject ILocalStorageService LocalStorage
+@inject SessionService SessionService
 @inject DataService DataService
 @inject Blazored.Toast.Services.IToastService ToastService
 
@@ -113,6 +115,7 @@
 </div>
 
 @code {
+    private string type { get; set; }
     private List<LinkItem> navLinks = new List<LinkItem>
     {
         new LinkItem { Name = "الشعب", Url = "/institute-management", IsActive = false },
@@ -130,6 +133,16 @@
 
     protected override async Task OnInitializedAsync()
     {
+        type = await SessionService.GetUserIdAsync();
+
+        if (type == "مشرف")
+        {
+            navLinks = new List<LinkItem>
+            {
+                new LinkItem { Name = "الشعب", Url = "/institute-management", IsActive = false },
+                new LinkItem { Name = "المواعيد", Url = "/dates", IsActive = true },
+            };
+        }
         await LoadDates();
     }
 

@@ -31,11 +31,14 @@
                 <span class="bi bi-list-task nav-icon" aria-hidden="true"></span> المهام اليومية
             </NavLink>
         </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="users-management">
-                <span class="bi bi-person-fill nav-icon" aria-hidden="true"></span> ادارة المستخدمين
-            </NavLink>
-        </div>
+        @if (type == "مدير")
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="users-management">
+                    <span class="bi bi-person-fill nav-icon" aria-hidden="true"></span> ادارة المستخدمين
+                </NavLink>
+            </div>
+        }
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="whatsapp">
                 <span class="bi bi-whatsapp nav-icon" aria-hidden="true"></span> رسائل الواتساب
@@ -50,7 +53,11 @@
 </div>
 @code 
 {
-
+    private string type { get; set; }
+    protected override async Task OnInitializedAsync()
+    {
+        type = await SessionService.GetUserIdAsync();
+    }
     private async Task logout()
     {
         await SessionService.ClearUserIdAsync();

@@ -127,7 +127,7 @@
                 {
                     id = dto.Id,
                     full_Name = dto.Full_Name,
-                    phone = dto.Phone
+                    phone = dto.Phone.Replace("+9639", "09")
                 }).ToList();
         }
         isLoading = false;
@@ -144,26 +144,46 @@
         showAddModal = false;
     }
 
-    private async Task AddTeacher()
+    private bool validatePhoneNumber(string phoneNumber)
     {
-        var response = await DataService.AddTeacher(new AddTeacherRequste
-            {
-                full_Name = newTeacher.full_Name,
-                phone = newTeacher.phone
-            });
-        if (response.StatusCode == Requests_Status.Accepted)
+        if (!string.IsNullOrEmpty(phoneNumber) && phoneNumber.Length == 10 && phoneNumber.StartsWith("09"))
         {
-            await LoadTeachers();
-            CloseAddTeacherModal();
-            ToastService.ShowSuccess("تم الاضافة بنجاح", settings =>
-            {
-                settings.Icon = "fa-check-circle";
-            });
+            return true;
         }
         else
         {
-            ToastService.ShowError("حدث خطأ ما");
+            return false;
         }
+    }
+
+    private async Task AddTeacher()
+    {
+        if (validatePhoneNumber(newTeacher.phone))
+        {
+            var response = await DataService.AddTeacher(new AddTeacherRequste
+                {
+                    full_Name = newTeacher.full_Name,
+                    phone = "+9639" + newTeacher.phone.Substring(2)
+                });
+            if (response.StatusCode == Requests_Status.Accepted)
+            {
+                await LoadTeachers();
+                CloseAddTeacherModal();
+                ToastService.ShowSuccess("تم الاضافة بنجاح", settings =>
+                {
+                    settings.Icon = "fa-check-circle";
+                });
+            }
+            else
+            {
+                ToastService.ShowError("حدث خطأ ما");
+            }
+        }
+        else
+        {
+            ToastService.ShowError("الرجاء التحقق من رقم الهاتف");
+        }
+
     }
 
     private void ShowEditTeacherModal(Teacher teacher)
@@ -184,24 +204,31 @@
 
     private async Task EditTeacher()
     {
-        var response = await DataService.EditeTeacher(new EditeTeacherRequste
-            {
-                id = editedTeacher.id,
-                full_Name = editedTeacher.full_Name,
-                phone = editedTeacher.phone
-            });
-        if (response.StatusCode == Requests_Status.Accepted)
+        if(validatePhoneNumber(editedTeacher.phone))
         {
-            await LoadTeachers();
-            CloseEditTeacherModal();
-            ToastService.ShowSuccess("تم التعديل بنجاح", settings =>
+            var response = await DataService.EditeTeacher(new EditeTeacherRequste
+                {
+                    id = editedTeacher.id,
+                    full_Name = editedTeacher.full_Name,
+                    phone = " +9639" + editedTeacher.phone.Substring(2)
+                });
+            if (response.StatusCode == Requests_Status.Accepted)
             {
-                settings.Icon = "fa-check-circle";
-            });
+                await LoadTeachers();
+                CloseEditTeacherModal();
+                ToastService.ShowSuccess("تم التعديل بنجاح", settings =>
+                {
+                    settings.Icon = "fa-check-circle";
+                });
+            }
+            else
+            {
+                ToastService.ShowError("حدث خطأ ما");
+            }
         }
         else
         {
-            ToastService.ShowError("حدث خطأ ما");
+            ToastService.ShowError("الرجاء التحقق من رقم الهاتف");
         }
     }
 

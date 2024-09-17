@@ -20,7 +20,7 @@ namespace MauiApp1.Data
         public DataService()
         {
             client = new HttpClient();
-            baseUrl = "https://localhost:5001/";
+            baseUrl = "http://192.168.43.178:5000/";
             //baseUrl = "https://adel99.bsite.net/";
             options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
 
@@ -81,6 +81,14 @@ namespace MauiApp1.Data
         public async Task<GeneralResponse> GetStudentById(Guid Id)
         {
             var request = new HttpRequestMessage(HttpMethod.Get, baseUrl + $"api/Student/GetStudentById?id={Id}");
+            var response = await client.SendAsync(request);
+            var result = await response.Content.ReadAsStringAsync();
+            GeneralResponse Data = JsonSerializer.Deserialize<GeneralResponse>(result, options);
+            return Data;
+        }
+        public async Task<GeneralResponse> MoveStudentToGratitude(Guid Id)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, baseUrl + $"api/Student/MoveStudentToGratitude?id={Id}");
             var response = await client.SendAsync(request);
             var result = await response.Content.ReadAsStringAsync();
             GeneralResponse Data = JsonSerializer.Deserialize<GeneralResponse>(result, options);
@@ -582,6 +590,22 @@ namespace MauiApp1.Data
         public async Task<GeneralResponse> GetAllPhoneNumbers()
         {
             var request = new HttpRequestMessage(HttpMethod.Get, baseUrl + $"api/Global/GetAllPhoneNumbers");
+            var response = await client.SendAsync(request);
+            var result = await response.Content.ReadAsStringAsync();
+            GeneralResponse data = JsonSerializer.Deserialize<GeneralResponse>(result, options);
+            return data;
+        }
+        public async Task<GeneralResponse> GetAllHappyBirthDays()
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, baseUrl + $"api/Global/GetTodayBirthDayNumbers");
+            var response = await client.SendAsync(request);
+            var result = await response.Content.ReadAsStringAsync();
+            GeneralResponse data = JsonSerializer.Deserialize<GeneralResponse>(result, options);
+            return data;
+        }
+        public async Task<GeneralResponse> GetAllStatistics()
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, baseUrl + $"api/Global/GetAllStatistics");
             var response = await client.SendAsync(request);
             var result = await response.Content.ReadAsStringAsync();
             GeneralResponse data = JsonSerializer.Deserialize<GeneralResponse>(result, options);

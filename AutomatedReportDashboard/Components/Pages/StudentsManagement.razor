@@ -1,4 +1,6 @@
 ﻿@page "/students-management"
+@inject ILocalStorageService LocalStorage
+@inject SessionService SessionService
 @inject DataService DataService
 @inject Blazored.Toast.Services.IToastService ToastService
 @inject Microsoft.JSInterop.IJSRuntime JSRuntime
@@ -33,15 +35,18 @@
     }
     @if (selectedDivisionId != Guid.Empty)
     {
-        <div class="mb-2">
-            <input type="text" placeholder="البحث عن طريق الاسم او رقم الهاتف" class="form-control" @oninput="OnSearchChanged">
-        </div>
+        @if (type == "مدير")
+        {
+            <div class="mb-2">
+                <input type="text" placeholder="البحث عن طريق الاسم او رقم الهاتف" class="form-control" @oninput="OnSearchChanged">
+            </div>
+        }
         <button class="btn btn-primary mb-3" @onclick="ShowAddStudentModal">اضافة طالب جديد</button>
         @if (isLoading)
         {
             <p>جاري التحميل</p>
         }
-        else
+        else if (type == "مدير")
         {
             <table class="table table-striped table-bordered">
                 <thead class="thead-dark">
@@ -82,14 +87,19 @@
                             <td>@student.TotalFee</td>
                             <td>@student.Avg</td>
                             <td>
+                                <button class="btn btn-info btn-sm" @onclick="() => ShowPaymentsModal(student.Id)">الدفعات</button>
+                                <button class="btn btn-dark btn-sm" @onclick="() => MoveStudentToGratitude(student.Id)">تخريج</button>
                                 <button class="btn btn-warning btn-sm" @onclick="() => StartEditStudent(student)">تعديل</button>
                                 <button class="btn btn-danger btn-sm" @onclick="() => DeleteStudent(student.Id)">حذف</button>
-                                <button class="btn btn-info btn-sm" @onclick="() => ShowPaymentsModal(student.Id)">الدفعات</button>
                             </td>
                         </tr>
                     }
                 </tbody>
             </table>
+        }
+        else
+        {
+            <p>يمكن للمدير فقط رؤية الطلاب</p>
         }
     }
 </div>
@@ -263,6 +273,7 @@
     private Student currentStudent;
     private PaymentDto newPayment = new PaymentDto();
     private string modalTitle;
+    private string type { get; set; }
 
     public Guid selectedCertificateId
     {
@@ -292,6 +303,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        type = await SessionService.GetUserIdAsync();
         await LoadCertificates();
     }
 
@@ -349,10 +361,10 @@
                     Address = dto.Address,
                     Gender = dto.Gender,
                     DateOfBirth = dto.BirthDay,
-                    PhoneNumber = dto.Phone,
-                    FatherPhoneNumber = dto.Father_Phone,
+                    PhoneNumber = dto.Phone.Replace("+9639", "09"),
+                    FatherPhoneNumber = dto.Father_Phone.Replace("+9639", "09"),
                     FatherName = dto.Father_Name,
-                    MotherPhoneNumber = dto.Mother_Phone,
+                    MotherPhoneNumber = dto.Mother_Phone.Replace("+9639", "09"),
                     MotherName = dto.Mother_Name,
                     IsFather = dto.DefaultParentPhonIsFather,
                     TotalFee = dto.Total_Payments,
@@ -419,111 +431,136 @@
         OpenStudentModal();
     }
 
+    private string changePhoneNumber(string phoneNumber)
+    {
+        return "+9639" + phoneNumber.Substring(2);
+    }
+    private bool validatePhoneNumber(string phoneNumber)
+    {
+        if (!string.IsNullOrEmpty(phoneNumber) && phoneNumber.Length == 10 && phoneNumber.StartsWith("09"))
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
     private async Task SaveStudent()
     {
-        if (editMode)
+        if (validatePhoneNumber(newStudent.PhoneNumber) && validatePhoneNumber(newStudent.FatherPhoneNumber) && validatePhoneNumber(newStudent.MotherPhoneNumber))
         {
-            if (newStudent.FatherOrMother == "Father")
+            if (editMode)
             {
-                newStudent.IsFather = true;
-            }
-            else
-            {
-                newStudent.IsFather = false;
-            }
-            var response = await DataService.EditeStudent(new EditeStudentRequste
-            {
-                id = newStudent.Id,
-                first_Name = newStudent.FirstName,
-                last_Name = newStudent.LastName,
-                gender = newStudent.Gender,
-                address = newStudent.Address,
-                birthDay = newStudent.DateOfBirth,
-                phone = newStudent.PhoneNumber,
-                father_Phone = newStudent.FatherPhoneNumber,
-                father_Name = newStudent.FatherName,
-                mother_Phone = newStudent.MotherPhoneNumber,
-                mother_Name = newStudent.MotherName,
-                defaultParentPhonIsFather = newStudent.IsFather,
-                total_Payments = newStudent.TotalFee,
-                divisionId = selectedDivisionId,
-                agreedMonthlyPayment = newStudent.agreedMonthlyPayment
-            });
-            if (response.StatusCode == Requests_Status.Accepted)
-            {
-                var student = students.FirstOrDefault(s => s.Id == newStudent.Id);
-                if (student != null)
+                if (newStudent.FatherOrMother == "Father")
                 {
-                    student.FirstName = newStudent.FirstName;
-                    student.LastName = newStudent.LastName;
-                    student.Gender = newStudent.Gender;
-                    student.Address = newStudent.Address;
-                    student.DateOfBirth = newStudent.DateOfBirth;
-                    student.PhoneNumber = newStudent.PhoneNumber;
-                    student.FatherName = newStudent.FatherName;
-                    student.FatherPhoneNumber = newStudent.FatherPhoneNumber;
-                    student.MotherName = newStudent.MotherName;
-                    student.MotherPhoneNumber = newStudent.MotherPhoneNumber;
-                    student.IsFather = newStudent.IsFather;
-                    student.TotalFee = newStudent.TotalFee;
-                    student.agreedMonthlyPayment = newStudent.agreedMonthlyPayment;
+                    newStudent.IsFather = true;
                 }
-                editMode = false;
-                newStudent = new Student();
-                CloseStudentModal();
-                ToastService.ShowSuccess("تم التعديل بنجاح", settings =>
+                else
                 {
-                    settings.Icon = "fa-check-circle";
-                });
-                showEditModal = false;
+                    newStudent.IsFather = false;
+                }
+                var response = await DataService.EditeStudent(new EditeStudentRequste
+                    {
+                        id = newStudent.Id,
+                        first_Name = newStudent.FirstName,
+                        last_Name = newStudent.LastName,
+                        gender = newStudent.Gender,
+                        address = newStudent.Address,
+                        birthDay = newStudent.DateOfBirth,
+                        phone = changePhoneNumber(newStudent.PhoneNumber),
+                        father_Phone = changePhoneNumber(newStudent.FatherPhoneNumber),
+                        father_Name = newStudent.FatherName,
+                        mother_Phone = changePhoneNumber(newStudent.MotherPhoneNumber),
+                        mother_Name = newStudent.MotherName,
+                        defaultParentPhonIsFather = newStudent.IsFather,
+                        total_Payments = newStudent.TotalFee,
+                        divisionId = selectedDivisionId,
+                        agreedMonthlyPayment = newStudent.agreedMonthlyPayment
+                    });
+                if (response.StatusCode == Requests_Status.Accepted)
+                {
+                    editMode = false;
+                    newStudent = new Student();
+                    CloseStudentModal();
+                    await LoadStudents();
+                    ToastService.ShowSuccess("تم التعديل بنجاح", settings =>
+                    {
+                        settings.Icon = "fa-check-circle";
+                    });
+                    showEditModal = false;
+                }
+                else
+                {
+                    ToastService.ShowError("حدث خطأ ما");
+                }
             }
             else
             {
-                ToastService.ShowError("حدث خطأ ما");
+                if (newStudent.FatherOrMother == "Father")
+                {
+                    newStudent.IsFather = true;
+                }
+                else
+                {
+                    newStudent.IsFather = false;
+                }
+                var response = await DataService.AddStudent(new AddStudentRequste
+                    {
+                        first_Name = newStudent.FirstName,
+                        last_Name = newStudent.LastName,
+                        gender = newStudent.Gender,
+                        address = newStudent.Address,
+                        birthDay = newStudent.DateOfBirth,
+                        phone = changePhoneNumber(newStudent.PhoneNumber),
+                        father_Name = newStudent.FatherName,
+                        father_Phone = changePhoneNumber(newStudent.FatherPhoneNumber),
+                        mother_Name = newStudent.MotherName,
+                        mother_Phone = changePhoneNumber(newStudent.MotherPhoneNumber),
+                        defaultParentPhonIsFather = newStudent.IsFather,
+                        total_Payments = newStudent.TotalFee,
+                        divisionId = selectedDivisionId,
+                        agreedMonthlyPayment = newStudent.agreedMonthlyPayment
+                    });
+                if (response.StatusCode == Requests_Status.Accepted)
+                {
+                    await LoadStudents();
+                    newStudent = new Student();
+                    CloseStudentModal();
+                    ToastService.ShowSuccess("تم الاضافة بنجاح", settings =>
+                    {
+                        settings.Icon = "fa-check-circle";
+                    });
+                    showAddModal = false;
+                }
+                else
+                {
+                    ToastService.ShowError("حدث خطأ ما");
+                }
             }
         }
         else
         {
-            if (newStudent.FatherOrMother == "Father")
+            ToastService.ShowError("الرجاء التحقق من ارقام الهاتف");
+        }
+    }
+
+    private async Task MoveStudentToGratitude(Guid studentId)
+    {
+        var response = await DataService.MoveStudentToGratitude(studentId);
+        if (response.StatusCode == Requests_Status.Accepted)
+        {
+            var student = students.FirstOrDefault(s => s.Id == studentId);
+            if (student != null)
             {
-                newStudent.IsFather = true;
+                students.Remove(student);
+                filteredStudents.Remove(student);
+                ToastService.ShowSuccess("تم تخريج الطالب بنجاح");
             }
-            else
-            {
-                newStudent.IsFather = false;
-            }
-            var response = await DataService.AddStudent(new AddStudentRequste
-            {
-                first_Name = newStudent.FirstName,
-                last_Name = newStudent.LastName,
-                gender = newStudent.Gender,
-                address = newStudent.Address,
-                birthDay = newStudent.DateOfBirth,
-                phone = newStudent.PhoneNumber,
-                father_Name = newStudent.FatherName,
-                father_Phone = newStudent.FatherPhoneNumber,
-                mother_Name = newStudent.MotherName,
-                mother_Phone = newStudent.MotherPhoneNumber,
-                defaultParentPhonIsFather = newStudent.IsFather,
-                total_Payments = newStudent.TotalFee,
-                divisionId = selectedDivisionId,
-                agreedMonthlyPayment = newStudent.agreedMonthlyPayment
-            });
-            if (response.StatusCode == Requests_Status.Accepted)
-            {
-                await LoadStudents();
-                newStudent = new Student();
-                CloseStudentModal();
-                ToastService.ShowSuccess("تم الاضافة بنجاح", settings =>
-                {
-                    settings.Icon = "fa-check-circle";
-                });
-                showAddModal = false;
-            }
-            else
-            {
-                ToastService.ShowError("حدث خطأ ما");
-            }
+        }
+        else
+        {
+            ToastService.ShowError("حدث خطأ ما");
         }
     }
 

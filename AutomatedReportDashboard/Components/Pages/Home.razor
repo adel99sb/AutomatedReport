@@ -1,5 +1,153 @@
 ﻿@page "/"
+@inject Blazored.Toast.Services.IToastService ToastService
+@inject DataService dataService
 
-<h1>الاحصائيات</h1>
+<h1>الإحصائيات</h1>
 
-سيتم اضافة الاحصائيات قريباً
+@if (statisticsData != null)
+{
+    <div class="container">
+        <div class="row">
+            <div class="col-sm-6 col-md-4 mb-3">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i style="color: blue;" class="bi bi-person-fill"></i> عدد الطلاب الذكور
+                        </h5>
+                        <p class="card-text">@statisticsData.MailNumber</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-4 mb-3">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i style="color: blue;" class="bi bi-person-fill"></i> عدد الطلاب الإناث
+                        </h5>
+                        <p class="card-text">@statisticsData.FemailNumber</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-4 mb-3">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i style="color: blue;" class="bi bi-house-door-fill"></i> عدد القاعات
+                        </h5>
+                        <p class="card-text">@statisticsData.HallNumber</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-4 mb-3">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i style="color: blue;" class="bi bi-grid-fill"></i> عدد الشعب
+                        </h5>
+                        <p class="card-text">@statisticsData.DivisonNumber</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-4 mb-3">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i style="color: blue;" class="bi bi-person-video3"></i> عدد المعلمين
+                        </h5>
+                        <p class="card-text">@statisticsData.TeacherNumber</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-4 mb-3">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i style="color: blue;" class="bi bi-award-fill"></i> عدد الطلاب بشهادة اعدادي
+                        </h5>
+                        <p class="card-text">@statisticsData.basicCertificateNumber</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-4 mb-3">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i style="color: blue;" class="bi bi-award-fill"></i> عدد الطلاب بشهادة علمية
+                        </h5>
+                        <p class="card-text">@statisticsData.scientificCertificateNumber</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-4 mb-3">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i style="color: blue;" class="bi bi-award-fill"></i> عدد الطلاب بشهادة أدبية
+                        </h5>
+                        <p class="card-text">@statisticsData.literaryCertificateNumber</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-4 mb-3">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i style="color: blue;" class="bi bi-diagram-3-fill"></i> عدد الشعب بشهادة اعدادي
+                        </h5>
+                        <p class="card-text">@statisticsData.basicCertificateDivisionNumber</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-4 mb-3">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i style="color: blue;" class="bi bi-diagram-3-fill"></i> عدد الشعب بشهادة علمية
+                        </h5>
+                        <p class="card-text">@statisticsData.scientificCertificateDivisionNumber</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-4 mb-3">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i style="color: blue;" class="bi bi-diagram-3-fill"></i> عدد الشعب بشهادة أدبية
+                        </h5>
+                        <p class="card-text">@statisticsData.literaryCertificateDivisionNumber</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-md-4 mb-3">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i style="color: blue;" class="bi bi-emoji-smile-fill"></i> عدد الطلاب المتخرجين
+                        </h5>
+                        <p class="card-text">@statisticsData.GratitudeStudentNumber</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <p>جاري تحميل البيانات...</p>
+}
+
+@code {
+    private GetAllStatisticsResponse statisticsData;
+    protected override async Task OnInitializedAsync()
+    {
+        var response = await dataService.GetAllStatistics();
+        if (response.StatusCode == Requests_Status.Ok)
+        {
+            statisticsData = response.Data.ToObj<GetAllStatisticsResponse>();
+        }
+        else
+        {
+            ToastService.ShowError("حدث خطأ ما");
+        }
+    }
+}

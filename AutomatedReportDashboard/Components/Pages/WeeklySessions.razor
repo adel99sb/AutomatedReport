@@ -1,4 +1,6 @@
 ﻿@page "/weekly-sessions/{divisionID:guid}/{certificateID:guid}"
+@inject ILocalStorageService LocalStorage
+@inject SessionService SessionService
 @inject NavigationManager NavigationManager
 @inject DataService DataService
 @inject Blazored.Toast.Services.IToastService ToastService
@@ -103,6 +105,7 @@
 
 
 @code {
+    private string type { get; set; }
     private List<LinkItem> navLinks = new List<LinkItem>
     {
         new LinkItem { Name = "الشعب", Url = "/institute-management", IsActive = true },
@@ -125,6 +128,16 @@
 
     protected override async Task OnInitializedAsync()
     {
+        type = await SessionService.GetUserIdAsync();
+
+        if (type == "مشرف")
+        {
+            navLinks = new List<LinkItem>
+            {
+                new LinkItem { Name = "الشعب", Url = "/institute-management", IsActive = true },
+                new LinkItem { Name = "المواعيد", Url = "/dates", IsActive = false },
+            };
+        }
         await LoadSessions();
     }
 

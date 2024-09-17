@@ -11,7 +11,9 @@
 else if (isReady)
 {
     <h1>جاري التشغيل</h1>
-
+    <div class="d-flex align-items-center justify-content-end">
+        <button class="btn btn-primary" @onclick="sendHappyBirthDay">ارسال رسائل اعياد الميلاد</button>
+    </div>
     <div class="mb-3">
         <label for="sendOption" class="form-label">ارسال الى:</label>
         <select id="sendOption" @bind="sendOption" class="form-select">
@@ -218,6 +220,7 @@ else
     private string X6Input;
     private string X7Input;
     private string newMessage;
+    private List<HappyBirthDay> happyBirthDays = new List<HappyBirthDay>();
     private List<string> messageTemplates = new()
     {
         "إدارة Sunrise تعلمكم بتفاصيل دوام يوم _X0_ للطالب/ة : X1.\nوقت الدخول : X2 .\nالحصة : الوقت : المادة : المقرر.\nX3\nانتهاء الدوام الساعة X4.\nوأن علامته في مذاكرة X5 هي X6 من اصل X7\n يرجى عدم التأخر ثانياً ",
@@ -286,6 +289,26 @@ else
         StateHasChanged();
         isReady = await messaging.IsReadyToRun();
         isChecking = false;
+    }
+
+    private async Task sendHappyBirthDay()
+    {
+        var response = await dataService.GetAllHappyBirthDays();
+        if (response.StatusCode == Requests_Status.Ok)
+        {
+            var result = response.Data.ToObj<GetTodayBirthDayNumbersResponse>().Birthdays;
+            happyBirthDays = result.Select(d=> new HappyBirthDay
+            {
+                name = d.Name,
+                phone = d.Phone
+            }).ToList();
+        }
+        else
+        {
+            ToastService.ShowError("حدث خطأ ما");
+        }
+        sendStatus = await messaging.SendHappyBirthDay(happyBirthDays);
+        ToastService.ShowInfo(sendStatus);
     }
 
     private async Task SendMessage()

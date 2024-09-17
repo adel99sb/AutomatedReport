@@ -1,4 +1,5 @@
-﻿using OpenQA.Selenium;
+﻿using MauiApp1.Data;
+using OpenQA.Selenium;
 using OpenQA.Selenium.Edge;
 using System;
 using System.Threading.Tasks;
@@ -138,6 +139,49 @@ namespace MauiApp1.WhatsAppSetting
                             return $"{recipients.Count} رسائل تم ارسالها بنجاح";
                         else
                             return $"{recipients.Count - FailedTimes} رسائل تم ارسالها و {FailedTimes} فشلت";
+                    }
+                    catch (Exception ex)
+                    {
+                        isReady = false;
+                        return ex.Message;
+                    }
+                }
+                else
+                {
+                    return "الرجاء اختيار المستقبلين و كتابة الرسالة اولاً";
+                }
+            }
+            else
+            {
+                isReady = false;
+                return "خدمات الواتساب غير متوفرة الرجاء اعادة تشغيل التطبيق";
+            }
+        }
+        public async Task<string> SendHappyBirthDay(List<HappyBirthDay> happyBirthDays)
+        {
+            string messageP1 = " اسرة معهد Sun Rise تتمنى للطالب/ة ";
+            string messageP2 = " عيد ميلاد سعيد وعمراً طويلاً ";
+            string message = "";
+            if (isReady)
+            {
+                if (happyBirthDays.Count > 0)
+                {
+                    int FailedTimes = 0;
+                    try
+                    {
+                        foreach (var item in happyBirthDays)
+                        {
+                            message = messageP1 + item.name + messageP2;
+                            var res = await SendMessage(item.phone, message);
+                            if (!res)
+                            {
+                                FailedTimes++;
+                            }
+                        }
+                        if (happyBirthDays.Count - FailedTimes == 0)
+                            return $"{happyBirthDays.Count} رسائل تم ارسالها بنجاح";
+                        else
+                            return $"{happyBirthDays.Count - FailedTimes} رسائل تم ارسالها و {FailedTimes} فشلت";
                     }
                     catch (Exception ex)
                     {

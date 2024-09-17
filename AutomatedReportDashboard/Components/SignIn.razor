@@ -34,6 +34,7 @@
 @code {
     private Guid UserId { get; set; }
     private string Password { get; set; }
+    private string Type { get; set; }
     private bool isLoading = true;
     private List<UserDto> users { get; set; }
 
@@ -55,10 +56,17 @@
     private async Task Sign()
     {
         var response = await DataService.Login(UserId, Password);
-
+        if (users.First().Id == UserId)
+        {
+            Type = users.First().Type;
+        }
+        else
+        {
+            Type = users.Last().Type;
+        }
         if (response != null && response.StatusCode == Requests_Status.Ok)
         {
-            await SessionService.SetUserIdAsync(UserId.ToString());
+            await SessionService.SetUserIdAsync(Type);
             Navigation.NavigateTo("/");
             Navigation.Refresh();
         }
