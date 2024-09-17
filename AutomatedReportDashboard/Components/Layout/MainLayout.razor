@@ -1,0 +1,50 @@
+﻿@inherits LayoutComponentBase
+@inject ILocalStorageService LocalStorage
+@inject NavigationManager Navigation
+@inject SessionService SessionService
+
+
+    <div class="page">
+        
+    @if (IsUserSignedIn)
+    {
+        <div class="sidebar">
+            <NavMenu />
+        </div>
+        
+    }
+        <main>
+
+            <article class="content px-4">
+                @Body
+            </article>
+        </main>
+    </div>
+<BlazoredToasts />
+
+@code {
+    private bool IsUserSignedIn { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        SessionService.OnChange += StateHasChanged;
+        var userId = await SessionService.GetUserIdAsync();
+        IsUserSignedIn = !string.IsNullOrEmpty(userId);
+
+        if (!IsUserSignedIn)
+        {
+            Navigation.NavigateTo("/signin");
+        }
+    }
+
+    private async Task UpdateUserState()
+    {
+        var userId = await SessionService.GetUserIdAsync();
+        IsUserSignedIn = !string.IsNullOrEmpty(userId);
+    }
+
+    public void Dispose()
+    {
+        SessionService.OnChange -= StateHasChanged;
+    }
+}

@@ -1,0 +1,171 @@
+﻿@page "/subjects-management-add/{certificateId:guid}/{divisionId:guid}/{selectedDate}"
+@inject DataService DataService
+@inject Blazored.Toast.Services.IToastService ToastService
+@inject NavigationManager NavigationManager
+<h3 class="text-center">اضافة دروس</h3>
+
+<LinksMenu Links="navLinks" />
+
+<div class="container mt-4">
+    <div class="row mb-3">
+        <div class="col-md-12 text-right">
+            <button class="btn btn-primary" @onclick="Save">حفظ</button>
+        </div>
+    </div>
+    <!-- Display Sessions -->
+    @if (divisionId != Guid.Empty)
+    {
+        <h3 class="mt-4">معلومات الجلسات اليومية</h3>
+        @if (isLoading)
+        {
+            <p>جاري التحميل...</p>
+        }
+        else if (sessionViewModels == null || !sessionViewModels.Any())
+        {
+            <p>لا يوجد جلسات لعرضها</p>
+        }
+        else
+        {
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>اليوم</th>
+                        <th>الوقت</th>
+                        <th>المادة</th>
+                        <th>القاعة</th>
+                        <th>التاريخ</th>
+                        <th>عنوان الدرس</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var session in sessionViewModels)
+                    {
+                        <tr>
+                            <td>@Helper.ConvertDayToArabic(date.DayOfWeek.ToString())</td>
+                            <td>@session.Class</td>
+                            <td>@session.Subject</td>
+                            <td>@session.Hall</td>
+                            <td>@date.ToShortDateString()</td>
+                            <td><input type="text" class="form-control" @bind="session.Subject_Title" /></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public Guid divisionId { get; set; }
+    [Parameter] public Guid certificateId { get; set; }
+    [Parameter] public string selectedDate { get; set; }
+    public DateTime date = new DateTime();
+    private List<LinkItem> navLinks;
+    private List<SessionDto> sessions = new List<SessionDto>();
+    private List<SessionViewModel> sessionViewModels = new List<SessionViewModel>();
+    private bool isLoading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        date = DateTime.Parse(selectedDate);
+        navLinks = new List<LinkItem>
+        {
+            new LinkItem { Name = "ادارة المقرر المعطى", Url = $"/subjects-management/{certificateId}/{divisionId}", IsActive = true },
+            new LinkItem { Name = "ادارة العلامات", Url = $"/manage-grades/{certificateId}/{divisionId}", IsActive = false },
+            new LinkItem { Name = "ادارة التفقد", Url = $"/manage-attendance/{certificateId}/{divisionId}", IsActive = false }
+        };
+
+        await LoadSessions(divisionId);
+    }
+
+
+    private async Task LoadSessions(Guid DivisionId)
+    {
+        isLoading = true;
+
+        var response = await DataService.GetAllSessionsByDay(DivisionId, date.DayOfWeek.ToString());
+        if (response.StatusCode == Requests_Status.Ok)
+        {
+            var sessions = response.Data.ToObj<GetAllSessionsByDayResponse>().sessions;
+
+            // Map SessionDto to SessionViewModel
+            sessionViewModels = sessions.Select(session => new SessionViewModel
+                {
+                    id = Guid.Empty,
+                    sessions_RecordId = session.Id,
+                    Class = session.Class,
+                    Subject = session.Subject,
+                    Hall = session.Hall,
+                    IsAlreadyExist = false,
+                    Date = date,
+                    Subject_Title = ""  // Initialize the subject title as empty
+                }).ToList();
+
+            var existSessionsResponse = await DataService.GetAllDailySessionsByDate(DivisionId, date.ToString());
+            if (existSessionsResponse.StatusCode == Requests_Status.Ok)
+            {
+                var existSessions = existSessionsResponse.Data.ToObj<GetAllDailySessionsByDateResponse>().dailySessions_Records;
+
+                foreach (var sessionViewModel in sessionViewModels)
+                {
+                    var matchingExistSession = existSessions.FirstOrDefault(existSession =>
+                        existSession.Sessions_RecordId == sessionViewModel.sessions_RecordId);
+
+                    if (matchingExistSession != null)
+                    {
+                        // Update sessionViewModel with data from matching existSession
+                        sessionViewModel.Subject_Title = matchingExistSession.Subject_Title;
+                        sessionViewModel.IsAlreadyExist = true;
+                        sessionViewModel.id = matchingExistSession.Id;
+                    }
+                }
+            }
+        }
+        else
+        {
+            ToastService.ShowError("فشل في تحميل الجلسات.");
+        }
+
+        isLoading = false;
+        StateHasChanged();
+    }
+
+
+    private async Task Save()
+    {
+        var dailySessionList = sessionViewModels.Select(session => new
+        {
+            id = session.id,
+            date = session.Date,
+            sessions_RecordId = session.sessions_RecordId,
+            subject_Title = session.Subject_Title,
+            IsAlreadyExist = session.IsAlreadyExist
+        }).ToList();
+
+        var requestBody = new AddDailySessionsRequste
+            {
+                DailySessionList = dailySessionList.Select(d => new DailySessionDto
+                {
+                    DailySessionId = d.id,
+                    IsAlreadyExist = d.IsAlreadyExist,
+                    Date = d.date,
+                    Sessions_RecordId = d.sessions_RecordId,
+                    Subject_Title = d.subject_Title
+                }).ToList()
+            };
+        var response = await DataService.AddDailySession(requestBody);
+
+        if (response.StatusCode == Requests_Status.Accepted)
+        {
+            ToastService.ShowSuccess("تم حفظ الجلسات بنجاح.");
+            NavigationManager.NavigateTo($"/subjects-management/{certificateId}/{divisionId}");
+        }
+        else
+        {
+            ToastService.ShowError("فشل في حفظ الجلسات.");
+        }
+    }
+
+}

@@ -1,0 +1,241 @@
+﻿@page "/dates"
+@inject DataService DataService
+@inject Blazored.Toast.Services.IToastService ToastService
+
+<h3 class="text-center">المواعيد</h3>
+<LinksMenu Links="navLinks" />
+
+<div class="container mt-4">
+    <h3>معلومات المواعيد</h3>
+    @if (isLoading)
+    {
+        <p>جاري التحميل</p>
+    }
+    else
+    {
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>الاسم</th>
+                    <th>وقت البدء</th>
+                    <th>وقت الانتهاء</th>
+                    <th>فعل</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (dates == null || !dates.Any())
+                {
+                    <p>لا يوجد مواعيد لعرضها</p>
+                }
+                else
+                {
+                    @foreach (var date in dates)
+                    {
+                        <tr>
+                            <td>@date.Name</td>
+                            <td>@date.From_Time</td>
+                            <td>@date.To_Time</td>
+                            <td>
+                                <button class="btn btn-warning btn-sm" @onclick="() => ShowEditDateModal(date)">تعديل</button>
+                                <button class="btn btn-danger btn-sm" @onclick="() => DeleteDate(date.Id)">حذف</button>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+        <button class="btn btn-primary mb-3" @onclick="ShowAddDateModal">اضافة موعد جديد</button>
+    }
+
+    <!-- Add Date Modal -->
+    <div class="@($"modal fade {(showAddModal ? "show d-block" : "")}")" tabindex="-1" role="dialog" style="display: @(showAddModal ? "block" : "none")">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">اضافة موعد جديد</h5>
+                    <button type="button" class="close" @onclick="() => CloseModal(true)">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="newDateName">الاسم</label>
+                        <input type="text" class="form-control" id="newDateName" @bind="newDate.Name">
+                    </div>
+                    <div class="form-group">
+                        <label for="newStartTime">وقت البدء</label>
+                        <input type="text" class="form-control" id="newStartTime" @bind="newDate.From_Time">
+                    </div>
+                    <div class="form-group">
+                        <label for="newEndTime">وقت الانتهاء</label>
+                        <input type="text" class="form-control" id="newEndTime" @bind="newDate.To_Time">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="() => CloseModal(true)">اغلاق</button>
+                    <button type="button" class="btn btn-primary" @onclick="AddDate">اضافة الموعد</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Date Modal -->
+    <div class="@($"modal fade {(showEditModal ? "show d-block" : "")}")" tabindex="-1" role="dialog" style="display: @(showEditModal ? "block" : "none")">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">تعديل الموعد</h5>
+                    <button type="button" class="close" @onclick="() => CloseModal(false)">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="editDateName">الاسم</label>
+                        <input type="text" class="form-control" id="editDateName" @bind="editedDate.Name">
+                    </div>
+                    <div class="form-group">
+                        <label for="editStartTime">وقت البدء</label>
+                        <input type="text" class="form-control" id="editStartTime" @bind="editedDate.From_Time">
+                    </div>
+                    <div class="form-group">
+                        <label for="editEndTime">وقت الانتهاء</label>
+                        <input type="text" class="form-control" id="editEndTime" @bind="editedDate.To_Time">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="() => CloseModal(false)">اغلاق</button>
+                    <button type="button" class="btn btn-primary" @onclick="EditDate">حفظ الموعد</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<LinkItem> navLinks = new List<LinkItem>
+    {
+        new LinkItem { Name = "الشعب", Url = "/institute-management", IsActive = false },
+        new LinkItem { Name = "القاعات", Url = "/halls", IsActive = false },
+        new LinkItem { Name = "المواعيد", Url = "/dates", IsActive = true },
+        new LinkItem { Name = "الاساتذة", Url = "/teachers", IsActive = false }
+    };
+
+    private ClassDto newDate = new ClassDto();
+    private ClassDto editedDate = new ClassDto();
+    private List<ClassDto> dates = new List<ClassDto>();
+    private bool isLoading = true;
+    private bool showAddModal = false;
+    private bool showEditModal = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDates();
+    }
+
+    private async Task LoadDates()
+    {
+        isLoading = true;
+        var response = await DataService.GetAllClasses();
+        if (response.StatusCode == Requests_Status.Ok)
+        {
+            dates = response.Data.ToObj<GetAllClassesResponse>().classes;
+        }
+        isLoading = false;
+    }
+
+    private void ShowAddDateModal()
+    {
+        newDate = new ClassDto();
+        showAddModal = true;
+    }
+
+    private async Task AddDate()
+    {
+        var response = await DataService.AddClass(new AddClassRequste
+            {
+                name = newDate.Name,
+                from_Time = newDate.From_Time,
+                to_Time = newDate.To_Time
+            });
+        if (response.StatusCode == Requests_Status.Accepted)
+        {
+            await LoadDates();
+            CloseModal(true);
+            ToastService.ShowSuccess("تم الاضافة بنجاح", settings =>
+            {
+                settings.Icon = "fa-check-circle";
+            });
+        }
+        else
+        {
+            ToastService.ShowError("حدث خطأ ما");
+        }
+    }
+
+    private void ShowEditDateModal(ClassDto date)
+    {
+        editedDate = new ClassDto
+            {
+                Id = date.Id,
+                Name = date.Name,
+                From_Time = date.From_Time,
+                To_Time = date.To_Time
+            };
+        showEditModal = true;
+    }
+
+    private async Task EditDate()
+    {
+        var response = await DataService.EditeClass(new EditeClassRequste
+            {
+                id = editedDate.Id,
+                name = editedDate.Name,
+                from_Time = editedDate.From_Time,
+                to_Time = editedDate.To_Time
+            });
+        if (response.StatusCode == Requests_Status.Accepted)
+        {
+            await LoadDates();
+            CloseModal(false);
+            ToastService.ShowSuccess("تم التعديل بنجاح", settings =>
+            {
+                settings.Icon = "fa-check-circle";
+            });
+        }
+        else
+        {
+            ToastService.ShowError("حدث خطأ ما");
+        }
+    }
+
+    private async Task DeleteDate(Guid dateId)
+    {
+        var response = await DataService.DeleteClass(dateId);
+        if (response.StatusCode == Requests_Status.Accepted)
+        {
+            var date = dates.FirstOrDefault(d => d.Id == dateId);
+            if (date != null)
+            {
+                dates.Remove(date);
+                ToastService.ShowSuccess("تم الحذف بنجاح");
+            }
+        }
+        else
+        {
+            ToastService.ShowError("حدث خطأ ما");
+        }
+    }
+
+    private void CloseModal(bool isAddModal)
+    {
+        if (isAddModal)
+        {
+            showAddModal = false;
+        }
+        else
+        {
+            showEditModal = false;
+        }
+    }
+}

@@ -1,0 +1,252 @@
+﻿@page "/subjects-management/{certificateId:guid}/{divisionId:guid}"
+@inject DataService DataService
+@inject Blazored.Toast.Services.IToastService ToastService
+@inject NavigationManager NavigationManager
+@inject Microsoft.JSInterop.IJSRuntime JSRuntime
+<h3 class="text-center">ادارة المقرر المعطى</h3>
+
+<LinksMenu Links="navLinks" />
+
+<div class="container mt-4">
+    <!-- Filter Options -->
+    <div class="row mb-3">
+        <div class="col-md-3">
+            <label for="filterDate">تصفية حسب التاريخ</label>
+            <input type="date" class="form-control" id="filterDate" @bind="filterDate" />
+        </div>
+        <div class="col-md-3">
+            <label for="filterSubjectName">تصفية حسب المادة</label>
+            <select class="form-control" id="filterSubjectName" @bind="filterSubjectName">
+                <option value="">اختر المادة</option>
+                @foreach (var Subject in subjects)
+                {
+                    <option value="@Subject.Name">@Subject.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="filterDay">تصفية حسب اليوم</label>
+            <select class="form-control" id="filterDay" @bind="filterDay">
+                <option value="">اختر اليوم</option>
+                <option value="Sunday">احد</option>
+                <option value="Monday">اثنين</option>
+                <option value="Tuesday">ثلاثاء</option>
+                <option value="Wednesday">اربعاء</option>
+                <option value="Thursday">خميس</option>
+                <option value="Friday">جمعة</option>
+                <option value="Saturday">سبت</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="searchTitle">بحث حسب عنوان الدرس</label>
+            <input type="text" class="form-control" id="searchTitle" @bind="searchTitle" />
+        </div>
+    </div>
+
+    <!-- New Button to Open Modal -->
+    <div class="row mb-3">
+        <div class="col-md-12 text-right">
+            <button class="btn btn-primary" @onclick="ShowDateModal">اضافة</button>
+        </div>
+    </div>
+
+    <!-- Modal Dialog -->
+    <div class="@($"modal fade {(showDateModal ? "show d-block" : "")}")" id="dateModal" tabindex="-1" role="dialog" aria-labelledby="dateModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="dateModalLabel">اختر تاريخاً</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close" @onclick="CloseDateModal">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <input type="date" class="form-control" @bind="selectedDate" />
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal" @onclick="CloseDateModal">إلغاء</button>
+                    <button type="button" class="btn btn-primary" @onclick="NavigateToDatePage">تأكيد</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Display Sessions -->
+    @if (divisionId != Guid.Empty)
+    {
+        <h3 class="mt-4">معلومات الجلسات اليومية</h3>
+        @if (isLoading)
+        {
+            <p>جاري التحميل...</p>
+        }
+        else if (filteredSessions == null || !filteredSessions.Any())
+        {
+            <p>لا يوجد جلسات لعرضها</p>
+        }
+        else
+        {
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>اليوم</th>
+                        <th>الوقت</th>
+                        <th>المادة</th>
+                        <th>القاعة</th>
+                        <th>التاريخ</th>
+                        <th>عنوان الدرس</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var session in filteredSessions)
+                    {
+                        <tr>
+                            <td>@Helper.ConvertDayToArabic(session.Day)</td>
+                            <td>@session.Class</td>
+                            <td>@session.SubjectName</td>
+                            <td>@session.Hall</td>
+                            <td>@session.Date.ToShortDateString()</td>
+                            <td>@session.Subject_Title</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    }
+</div>
+
+
+
+@code {
+    [Parameter] public Guid divisionId { get; set; }
+    [Parameter] public Guid certificateId { get; set; }
+    private List<LinkItem> navLinks;
+
+    private List<DailySessions_RecordDto> sessions = new List<DailySessions_RecordDto>();
+    private List<DailySessions_RecordDto> filteredSessions = new List<DailySessions_RecordDto>();
+    private bool isLoading = false;
+    private bool showDateModal = false;
+    private string arabicDay;
+    private List<SubjectDto> subjects = new List<SubjectDto>();
+    private DateTime? selectedDate;
+
+    // Filters
+    private DateTime? _filterDate;
+    private string _filterSubjectName;
+    private string _filterDay;
+    private string _searchTitle;
+    private DateTime? filterDate
+    {
+        get => _filterDate;
+        set
+        {
+            if (_filterDate != value)
+            {
+                _filterDate = value;
+                ApplyFilters();
+            }
+        }
+    }
+    private string filterSubjectName
+    {
+        get => _filterSubjectName;
+        set
+        {
+            if (_filterSubjectName != value)
+            {
+                _filterSubjectName = value;
+                ApplyFilters();
+            }
+        }
+    }
+    private string filterDay
+    {
+        get => _filterDay;
+        set
+        {
+            if (_filterDay != value)
+            {
+                _filterDay = value;
+                ApplyFilters();
+            }
+        }
+    }
+    private string searchTitle
+    {
+        get => _searchTitle;
+        set
+        {
+            if (_searchTitle != value)
+            {
+                _searchTitle = value;
+                ApplyFilters();
+            }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        navLinks = new List<LinkItem>
+        {
+            new LinkItem { Name = "ادارة المقرر المعطى", Url = $"/subjects-management/{certificateId}/{divisionId}", IsActive = true },
+            new LinkItem { Name = "ادارة العلامات", Url = $"/manage-grades/{certificateId}/{divisionId}", IsActive = false },
+            new LinkItem { Name = "ادارة التفقد", Url = $"/manage-attendance/{certificateId}/{divisionId}", IsActive = false }
+        };
+        await LoadSubjects(certificateId);
+        await LoadSessions(divisionId);
+        ApplyFilters();
+    }
+
+    private async Task LoadSubjects(Guid certificateID)
+    {
+        var subjectResponse = await DataService.GetAllSubjects(certificateID);
+        if (subjectResponse.StatusCode == Requests_Status.Ok)
+        {
+            subjects = subjectResponse.Data.ToObj<GetAllSubjectsResponse>().subjects;
+        }
+    }
+
+    private async Task LoadSessions(Guid DivisionId)
+    {
+        isLoading = true;
+        var response = await DataService.GetAllDailySessions(DivisionId);
+        if (response.StatusCode == Requests_Status.Ok)
+        {
+            sessions = response.Data.ToObj<GetAllDailySessionsResponse>().dailySessions_Records;
+            filteredSessions = sessions;
+        }
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    private void ApplyFilters()
+    {
+        filteredSessions = sessions.Where(session =>
+            (!filterDate.HasValue || session.Date.Date == filterDate.Value.Date) &&
+            (string.IsNullOrEmpty(filterSubjectName) || session.SubjectName.Contains(filterSubjectName, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(filterDay) || session.Day.Equals(filterDay, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrEmpty(searchTitle) || session.Subject_Title.Contains(searchTitle, StringComparison.OrdinalIgnoreCase))
+        ).ToList();
+        StateHasChanged();
+    }
+
+    // Show Modal
+    private void ShowDateModal()
+    {
+        showDateModal = true;
+    }
+
+    private void CloseDateModal()
+    {
+        showDateModal = false;
+    }
+    // Navigate to another page with the selected date
+    private void NavigateToDatePage()
+    {
+        if (selectedDate.HasValue)
+        {
+            var url = $"/subjects-management-add/{certificateId}/{divisionId}/{selectedDate.Value:yyyy-MM-dd}";
+            NavigationManager.NavigateTo(url);
+        }
+    }
+}

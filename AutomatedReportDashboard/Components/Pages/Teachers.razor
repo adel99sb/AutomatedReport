@@ -1,0 +1,228 @@
+﻿@page "/teachers"
+@inject DataService DataService
+@inject Blazored.Toast.Services.IToastService ToastService
+
+<h3 class="text-center">الاساتذة</h3>
+<LinksMenu Links="navLinks" />
+
+<div class="container mt-4">
+    <h3>معلومات الاساتذة</h3>
+    @if (isLoading)
+    {
+        <p>جاري التحميل</p>
+    }
+    else
+    {
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>الاسم</th>
+                    <th>رقم الهاتف</th>
+                    <th>فعل</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var teacher in teachers)
+                {
+                    <tr>
+                        <td>@teacher.full_Name</td>
+                        <td>@teacher.phone</td>
+                        <td>
+                            <button class="btn btn-warning btn-sm" @onclick="() => ShowEditTeacherModal(teacher)">تعديل</button>
+                            <button class="btn btn-danger btn-sm" @onclick="() => DeleteTeacher(teacher.id)">حذف</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <button class="btn btn-primary mb-3" @onclick="ShowAddTeacherModal">اضافة استاذ جديد</button>
+    }
+
+    <!-- Add Teacher Modal -->
+    <div class="@($"modal fade {(showAddModal ? "show d-block" : "")}")" tabindex="-1" role="dialog" style="display: @(showAddModal ? "block" : "none")">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">اضافة استاذ جديد</h5>
+                    <button type="button" class="close" @onclick="CloseAddTeacherModal">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="newTeacherName">الاسم</label>
+                        <input type="text" class="form-control" id="newTeacherName" @bind="newTeacher.full_Name">
+                    </div>
+                    <div class="form-group">
+                        <label for="newTeacherPhone">رقم الهاتف</label>
+                        <input type="text" class="form-control" id="newTeacherPhone" @bind="newTeacher.phone">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseAddTeacherModal">اغلاق</button>
+                    <button type="button" class="btn btn-primary" @onclick="AddTeacher">اضافة الاستاذ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Teacher Modal -->
+    <div class="@($"modal fade {(showEditModal ? "show d-block" : "")}")" tabindex="-1" role="dialog" style="display: @(showEditModal ? "block" : "none")">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">تعديل الاستاذ</h5>
+                    <button type="button" class="close" @onclick="CloseEditTeacherModal">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="editTeacherName">الاسم</label>
+                        <input type="text" class="form-control" id="editTeacherName" @bind="editedTeacher.full_Name">
+                    </div>
+                    <div class="form-group">
+                        <label for="editTeacherPhone">رقم الهاتف</label>
+                        <input type="text" class="form-control" id="editTeacherPhone" @bind="editedTeacher.phone">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseEditTeacherModal">اغلاق</button>
+                    <button type="button" class="btn btn-primary" @onclick="EditTeacher">حفظ التغييرات</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<LinkItem> navLinks = new List<LinkItem>
+    {
+        new LinkItem { Name = "الشعب", Url = "/institute-management", IsActive = false },
+        new LinkItem { Name = "القاعات", Url = "/halls", IsActive = false },
+        new LinkItem { Name = "المواعيد", Url = "/dates", IsActive = false },
+        new LinkItem { Name = "الاساتذة", Url = "/teachers", IsActive = true }
+    };
+
+    private Teacher newTeacher = new Teacher();
+    private Teacher editedTeacher = new Teacher();
+    private List<Teacher> teachers = new List<Teacher>();
+    private bool isLoading = true;
+    private bool showAddModal = false;
+    private bool showEditModal = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTeachers();
+    }
+
+    private async Task LoadTeachers()
+    {
+        isLoading = true;
+        var response = await DataService.GetAllTeachers();
+        if (response.StatusCode == Requests_Status.Ok)
+        {
+            var teacherDtos = response.Data.ToObj<GetAllTeachersResponse>().teachers;
+            teachers = teacherDtos.Select(dto => new Teacher
+                {
+                    id = dto.Id,
+                    full_Name = dto.Full_Name,
+                    phone = dto.Phone
+                }).ToList();
+        }
+        isLoading = false;
+    }
+
+    private void ShowAddTeacherModal()
+    {
+        newTeacher = new Teacher();
+        showAddModal = true;
+    }
+
+    private void CloseAddTeacherModal()
+    {
+        showAddModal = false;
+    }
+
+    private async Task AddTeacher()
+    {
+        var response = await DataService.AddTeacher(new AddTeacherRequste
+            {
+                full_Name = newTeacher.full_Name,
+                phone = newTeacher.phone
+            });
+        if (response.StatusCode == Requests_Status.Accepted)
+        {
+            await LoadTeachers();
+            CloseAddTeacherModal();
+            ToastService.ShowSuccess("تم الاضافة بنجاح", settings =>
+            {
+                settings.Icon = "fa-check-circle";
+            });
+        }
+        else
+        {
+            ToastService.ShowError("حدث خطأ ما");
+        }
+    }
+
+    private void ShowEditTeacherModal(Teacher teacher)
+    {
+        editedTeacher = new Teacher
+            {
+                id = teacher.id,
+                full_Name = teacher.full_Name,
+                phone = teacher.phone
+            };
+        showEditModal = true;
+    }
+
+    private void CloseEditTeacherModal()
+    {
+        showEditModal = false;
+    }
+
+    private async Task EditTeacher()
+    {
+        var response = await DataService.EditeTeacher(new EditeTeacherRequste
+            {
+                id = editedTeacher.id,
+                full_Name = editedTeacher.full_Name,
+                phone = editedTeacher.phone
+            });
+        if (response.StatusCode == Requests_Status.Accepted)
+        {
+            await LoadTeachers();
+            CloseEditTeacherModal();
+            ToastService.ShowSuccess("تم التعديل بنجاح", settings =>
+            {
+                settings.Icon = "fa-check-circle";
+            });
+        }
+        else
+        {
+            ToastService.ShowError("حدث خطأ ما");
+        }
+    }
+
+    private async Task DeleteTeacher(Guid teacherId)
+    {
+        var response = await DataService.DeleteTeacher(teacherId);
+        if (response.StatusCode == Requests_Status.Accepted)
+        {
+            var teacher = teachers.FirstOrDefault(t => t.id == teacherId);
+            if (teacher != null)
+            {
+                teachers.Remove(teacher);
+                ToastService.ShowSuccess("تم الحذف بنجاح", settings =>
+                {
+                    settings.Icon = "fa-check-circle";
+                });
+            }
+        }
+        else
+        {
+            ToastService.ShowError("حدث خطأ ما");
+        }
+    }
+}

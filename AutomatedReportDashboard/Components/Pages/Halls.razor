@@ -1,0 +1,221 @@
+﻿@page "/halls"
+@inject DataService DataService
+@inject Blazored.Toast.Services.IToastService ToastService
+
+<h3 class="text-center">القاعات</h3>
+<LinksMenu Links="navLinks" />
+
+<div class="container mt-4">
+    <h3>معلومات القاعات</h3>
+    @if (isLoading)
+    {
+        <p>جاري التحميل</p>
+    }
+    else
+    {
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>الاسم</th>
+                    <th>فعل</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var hall in halls)
+                {
+                    <tr>
+                        <td>@hall.Name</td>
+                        <td>
+                            <button class="btn btn-warning btn-sm" @onclick="() => ShowEditHallModal(hall)">تعديل</button>
+                            <button class="btn btn-danger btn-sm" @onclick="() => DeleteHall(hall.Id)">حذف</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <button class="btn btn-primary mb-3" @onclick="ShowAddHallModal">اضافة قاعة جديدة</button>
+    }
+
+    <!-- Add Hall Modal -->
+    <div class="@($"modal fade {(showAddModal ? "show d-block" : "")}")" tabindex="-1" role="dialog" style="display: @(showAddModal ? "block" : "none")">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">اضافة قاعة جديدة</h5>
+                    <button type="button" class="close" @onclick="() => CloseModal(true)">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="newHallName">اسم القاعة</label>
+                        <input type="text" class="form-control" id="newHallName" @bind="newHall.Name">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="() => CloseModal(true)">اغلاق</button>
+                    <button type="button" class="btn btn-primary" @onclick="AddHall">اضافة القاعة</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Hall Modal -->
+    <div class="@($"modal fade {(showEditModal ? "show d-block" : "")}")" tabindex="-1" role="dialog" style="display: @(showEditModal ? "block" : "none")">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">تعديل القاعة</h5>
+                    <button type="button" class="close" @onclick="() => CloseModal(false)">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="editHallName">اسم القاعة</label>
+                        <input type="text" class="form-control" id="editHallName" @bind="editedHall.Name">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="() => CloseModal(false)">اغلاق</button>
+                    <button type="button" class="btn btn-primary" @onclick="EditHall">حفظ القاعة</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<LinkItem> navLinks = new List<LinkItem>
+    {
+        new LinkItem { Name = "الشعب", Url = "/institute-management", IsActive = false },
+        new LinkItem { Name = "القاعات", Url = "/halls", IsActive = true },
+        new LinkItem { Name = "المواعيد", Url = "/dates", IsActive = false },
+        new LinkItem { Name = "الاساتذة", Url = "/teachers", IsActive = false }
+    };
+
+    private Hall newHall = new Hall();
+    private Hall editedHall = new Hall();
+    private List<Hall> halls = new List<Hall>();
+    private bool isLoading = true;
+    private bool showAddModal = false;
+    private bool showEditModal = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadHalls();
+    }
+
+    private async Task LoadHalls()
+    {
+        isLoading = true;
+        var response = await DataService.GetAllHalls();
+        if (response.StatusCode == Requests_Status.Ok)
+        {
+            var hallDtos = response.Data.ToObj<GetAllHallsResponse>().halls;
+            halls = hallDtos.Select(dto => new Hall
+                {
+                    Id = dto.id,
+                    Name = dto.Name
+                }).ToList();
+        }
+        isLoading = false;
+    }
+
+    private void ShowAddHallModal()
+    {
+        newHall = new Hall();
+        showAddModal = true;
+    }
+
+    private async Task AddHall()
+    {
+        var response = await DataService.AddHall(new AddHallRequste
+            {
+                name = newHall.Name
+            });
+        if (response.StatusCode == Requests_Status.Accepted)
+        {
+            await LoadHalls();
+            newHall = new Hall();
+            CloseModal(true);
+            ToastService.ShowSuccess("تم الاضافة بنجاح", settings =>
+            {
+                settings.Icon = "fa-check-circle";
+            });
+        }
+        else
+        {
+            ToastService.ShowError("حدث خطأ ما");
+        }
+    }
+
+    private void ShowEditHallModal(Hall hall)
+    {
+        editedHall = new Hall
+            {
+                Id = hall.Id,
+                Name = hall.Name
+            };
+        showEditModal = true;
+    }
+
+    private async Task EditHall()
+    {
+        var response = await DataService.EditeHall(new EditeHallRequste
+            {
+                id = editedHall.Id,
+                name = editedHall.Name
+            });
+        if (response.StatusCode == Requests_Status.Accepted)
+        {
+            var hall = halls.FirstOrDefault(h => h.Id == editedHall.Id);
+            if (hall != null)
+            {
+                hall.Name = editedHall.Name;
+            }
+            CloseModal(false);
+            ToastService.ShowSuccess("تم التعديل بنجاح", settings =>
+            {
+                settings.Icon = "fa-check-circle";
+            });
+        }
+        else
+        {
+            ToastService.ShowError("حدث خطأ ما");
+        }
+    }
+
+    private async Task DeleteHall(Guid hallId)
+    {
+        var response = await DataService.DeleteHall(hallId);
+        if (response.StatusCode == Requests_Status.Accepted)
+        {
+            var hall = halls.FirstOrDefault(h => h.Id == hallId);
+            if (hall != null)
+            {
+                halls.Remove(hall);
+                ToastService.ShowSuccess("تم الحذف بنجاح", settings =>
+                {
+                    settings.Icon = "fa-check-circle";
+                });
+            }
+        }
+        else
+        {
+            ToastService.ShowError("حدث خطأ ما");
+        }
+    }
+
+    private void CloseModal(bool isAddModal)
+    {
+        if (isAddModal)
+        {
+            showAddModal = false;
+        }
+        else
+        {
+            showEditModal = false;
+        }
+    }
+}

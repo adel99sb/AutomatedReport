@@ -1,0 +1,211 @@
+﻿@page "/weekly-sessions/{divisionID:guid}/{certificateID:guid}"
+@inject NavigationManager NavigationManager
+@inject DataService DataService
+@inject Blazored.Toast.Services.IToastService ToastService
+
+<h3 class="text-center">الحصص الاسبوعية</h3>
+<LinksMenu Links="navLinks" />
+
+<div class="container mt-4">
+    <button class="btn btn-primary mb-3" @onclick="ShowAddSessionModal">اضافة حصة جديدة</button>
+
+    @if (isLoading)
+    {
+        <p>جاري التحميل</p>
+    }
+    else if (sessionsGroupedByDays == null || !sessionsGroupedByDays.Any())
+    {
+        <p>لا يوجد اي حصص</p>
+    }
+    else
+    {
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>اليوم</th>
+                    @foreach (var sessionTime in sessionTimes)
+                    {
+                        <th>@sessionTime.Name<br /> @sessionTime.From_Time - @sessionTime.To_Time</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var day in Enum.GetValues(typeof(DayOfWeek)).Cast<DayOfWeek>())
+                {
+                    <tr>
+                        @if (day == DayOfWeek.Sunday)
+                        {
+                            arabicDay = "احد";
+                        }
+                        else if (day == DayOfWeek.Monday)
+                        {
+                            arabicDay = "اثنين";
+                        }
+                        else if (day == DayOfWeek.Tuesday)
+                        {
+                            arabicDay = "ثلاثاء";
+                        }
+                        else if (day == DayOfWeek.Wednesday)
+                        {
+                            arabicDay = "اربعاء";
+                        }
+                        else if (day == DayOfWeek.Thursday)
+                        {
+                            arabicDay = "خميس";
+                        }
+                        else if (day == DayOfWeek.Friday)
+                        {
+                            arabicDay = "جمعة";
+                        }
+                        else if (day == DayOfWeek.Saturday)
+                        {
+                            arabicDay = "سبت";
+                        }
+                        <td>@arabicDay</td>
+                        @foreach (var sessionTime in sessionTimes)
+                        {
+                            <td>
+                                @if (sessionsGroupedByDays.ContainsKey(day) && sessionsGroupedByDays[day].ContainsKey(sessionTime.Name))
+                                {
+                                    @foreach (var session in sessionsGroupedByDays[day][sessionTime.Name])
+                                    {
+                                        <div class="single-session">
+                                            <span>@session.SubjectName</span><span>@session.HallName</span>
+                                            <button class="btn btn-link btn-sm edit" @onclick="() => ShowEditSessionModal(session)">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pencil" viewBox="0 0 16 16">
+                                                    <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325" />
+                                                </svg>
+                                            </button>
+                                            <button class="btn btn-link btn-sm delete" @onclick="() => DeleteSession(session.Id)">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
+                                                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z" />
+                                                    <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    }
+                                }
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+<!-- Add Session Modal -->
+<AddSessionModal @ref="addSessionModal" OnSessionAdded="OnSessionAdded" divisionID="divisionID" certificateID="certificateID" />
+
+<!-- Edit Session Modal -->
+
+<EditSessionModal @ref="editSessionModal" OnSessionUpdated="OnSessionUpdated" divisionID="divisionID" certificateID="certificateID" />
+
+
+@code {
+    private List<LinkItem> navLinks = new List<LinkItem>
+    {
+        new LinkItem { Name = "الشعب", Url = "/institute-management", IsActive = true },
+        new LinkItem { Name = "القاعات", Url = "/halls", IsActive = false },
+        new LinkItem { Name = "المواعيد", Url = "/dates", IsActive = false },
+        new LinkItem { Name = "الاساتذة", Url = "/teachers", IsActive = false },
+    };
+
+    private bool isLoading = false;
+    [Parameter]
+    public Guid divisionID { get; set; }
+    [Parameter]
+    public Guid certificateID { get; set; }
+    private List<string> days = ["احد" , "اثنين" , "ثلاثاء" , "اربعاء" , "خميس" , "جمعة" , "سبت"];
+    private string arabicDay;
+    private List<ClassDto> sessionTimes = new List<ClassDto>();
+    private AddSessionModal addSessionModal;
+    private EditSessionModal editSessionModal;
+    private Dictionary<DayOfWeek, Dictionary<string, List<Session>>> sessionsGroupedByDays = new Dictionary<DayOfWeek, Dictionary<string, List<Session>>>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSessions();
+    }
+
+    private async Task LoadSessions()
+    {
+        isLoading = true;
+        var classResponse = await DataService.GetAllClasses();
+        if (classResponse.StatusCode == Requests_Status.Ok)
+        {
+            sessionTimes = classResponse.Data.ToObj<GetAllClassesResponse>().classes.OrderBy(p => p.From_Time).ToList();
+        }
+
+        var response = await DataService.GetAllSessions(divisionID);
+        if (response.StatusCode == Requests_Status.Ok)
+        {
+            var sessionDtos = response.Data.ToObj<GetAllSessionsResponse>().sessions;
+            var sessionList = sessionDtos.Select(dto => new Session
+            {
+                Id = dto.Id,
+                HallName = dto.Hall,
+                SubjectName = dto.Subject,
+                SessionTime = dto.Class,
+                Day = (DayOfWeek)dto.Day
+            }).ToList();
+            GroupSessionsByDays(sessionList);
+        }
+        isLoading = false;
+    }
+
+    private void GroupSessionsByDays(List<Session> sessionDtos)
+    {
+        sessionsGroupedByDays.Clear();
+        foreach (var sessionDto in sessionDtos)
+        {
+            var day = sessionDto.Day;
+            var sessionTime = sessionDto.SessionTime;
+
+            if (!sessionsGroupedByDays.ContainsKey(day))
+            {
+                sessionsGroupedByDays[day] = new Dictionary<string, List<Session>>();
+            }
+
+            if (!sessionsGroupedByDays[day].ContainsKey(sessionTime))
+            {
+                sessionsGroupedByDays[day][sessionTime] = new List<Session>();
+            }
+
+            sessionsGroupedByDays[day][sessionTime].Add(sessionDto);
+        }
+    }
+
+    private void ShowAddSessionModal()
+    {
+        addSessionModal.Show();
+    }
+
+    private async Task OnSessionAdded()
+    {
+        await LoadSessions();
+    }
+
+    private void ShowEditSessionModal(Session session)
+    {
+        editSessionModal.Show(session);
+    }
+
+    private async Task OnSessionUpdated()
+    {
+        await LoadSessions();
+    }
+    private async Task DeleteSession(Guid sessionId)
+    {
+        var response = await DataService.DeleteSession(sessionId);
+        if(response.StatusCode == Requests_Status.Accepted)
+        {
+            ToastService.ShowSuccess("تم الحذف بنجاح");
+            await LoadSessions();
+        }
+        else
+        {
+            ToastService.ShowError("حدث خطأ ما");
+        }
+    }
+}

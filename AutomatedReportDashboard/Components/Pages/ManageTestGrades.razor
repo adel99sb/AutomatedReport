@@ -1,0 +1,136 @@
+﻿@page "/manage-test-grades/{certificateId:guid}/{divisionId:guid}/{testId:guid}"
+@inject DataService DataService
+@inject Blazored.Toast.Services.IToastService ToastService
+@inject NavigationManager NavigationManager
+
+<h3>ادراة العلامات</h3>
+
+<LinksMenu Links="navLinks" />
+
+<div class="container mt-4">
+
+    @if (isLoading)
+    {
+        <p>جاري التحميل...</p>
+    }
+    else if (marks == null || !marks.Any())
+    {
+        <p>لا يوجد علامات</p>
+    }
+    else
+    {
+        <!-- Display Subject, Date, TotalMark, and Description -->
+        <div class="row mb-3">
+            <div class="col-md-12 d-flex flex-row align-items-center justify-content-between">
+                <p><strong>المادة:</strong> @Subject</p>
+                <p><strong>التاريخ:</strong> @Date.ToShortDateString()</p>
+                <p><strong>العلامة الكاملة:</strong> @TotalMark</p>
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-12 d-flex flex-row align-items-center justify-content-between">
+                <p><strong>الوصف:</strong> @Description</p>
+            </div>
+        </div>
+
+        <!-- Save Button -->
+        <div class="row mb-3">
+            <div class="col-md-12 text-right">
+                <button class="btn btn-primary" @onclick="Save">حفظ</button>
+            </div>
+        </div>
+
+        <!-- Display Marks Table -->
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>اسم الطالب</th>
+                    <th>العلامة</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var mark in marks)
+                {
+                    <tr>
+                        <td>@mark.Student_FirsName @mark.Student_LastName</td>
+                        <td>
+                            <input type="text" class="form-control" @bind="mark.Mark" />
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid divisionId { get; set; }
+    [Parameter] public Guid certificateId { get; set; }
+    [Parameter] public Guid testId { get; set; }
+    private List<LinkItem> navLinks;
+    private bool isLoading = false;
+    private List<AutomatedReportCore.Responces.DTOs.TestMarkDto> marks;
+    private string Subject { get; set; }
+    private DateTime Date { get; set; }
+    private double TotalMark { get; set; }
+    private string Description { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        navLinks = new List<LinkItem>
+        {
+            new LinkItem { Name = "ادارة المقرر المعطى", Url = $"/subjects-management/{certificateId}/{divisionId}", IsActive = false },
+            new LinkItem { Name = "ادارة العلامات", Url = $"/manage-grades/{certificateId}/{divisionId}", IsActive = true },
+            new LinkItem { Name = "ادارة التفقد", Url = $"/manage-attendance/{certificateId}/{divisionId}", IsActive = false }
+        };
+
+        await LoadMarks(testId);
+    }
+
+    private async Task LoadMarks(Guid DivisionId)
+    {
+        isLoading = true;
+
+        var response = await DataService.GetAllTestMarks(testId);
+        if (response.StatusCode == Requests_Status.Ok)
+        {
+            var testMarksResponse = response.Data.ToObj<GetAllTestMarksResponse>();
+            marks = testMarksResponse.testMarks.ToList();
+            Subject = testMarksResponse.Subject;
+            Date = testMarksResponse.Date;
+            TotalMark = testMarksResponse.TotalMark;
+            Description = testMarksResponse.Description;
+        }
+        else
+        {
+            ToastService.ShowError("فشل في تحميل العلامات.");
+        }
+
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    private async Task Save()
+    {
+        var response = await DataService.EditeTestMarks(new EditeTestMarksRequste
+            {
+                TestMarksList = marks.Select(d => new AutomatedReportCore.Requstes.DTOs.TestMarkDto
+                {
+                    TestId = testId,
+                    StudentId = d.StudentId,
+                    Mark = d.Mark
+                }).ToList()
+            });
+
+        if (response.StatusCode == Requests_Status.Accepted)
+        {
+            ToastService.ShowSuccess("تم حفظ العلامات بنجاح.");
+            NavigationManager.NavigateTo($"/manage-grades/{divisionId}/{certificateId}");
+        }
+        else
+        {
+            ToastService.ShowError("فشل في حفظ العلامات.");
+        }
+    }
+}

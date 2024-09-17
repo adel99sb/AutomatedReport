@@ -1,0 +1,428 @@
+﻿@page "/whatsapp"
+@inject Blazored.Toast.Services.IToastService ToastService
+@inject WhatsAppService messaging
+@inject DataService dataService
+
+<h3>رسائل الواتساب</h3>
+@if (isChecking)
+{
+    <h1>جاري التحقق من الواتساب الرجاء الانتظار...</h1>
+}
+else if (isReady)
+{
+    <h1>جاري التشغيل</h1>
+
+    <div class="mb-3">
+        <label for="sendOption" class="form-label">ارسال الى:</label>
+        <select id="sendOption" @bind="sendOption" class="form-select">
+            <option value="single">طالب واحد</option>
+            <option value="division">شعبة كاملة</option>
+            <option value="all">جميع المستخدمين(طلاب,اولياء امور,اساتذة...)</option>
+        </select>
+    </div>
+
+    @if (sendOption == "single")
+    {
+        <div class="mb-3">
+            <label for="studentSelect" class="form-label">اختار الطالب:</label>
+            <select id="studentSelect" @bind="selectedStudentId" class="form-select">
+                @foreach (var student in students)
+                {
+                    <option value="@student.Id">@student.First_Name @student.Last_Name</option>
+                }
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="studentOrFather" class="form-label">هل تريد الارسال الى الطلاب او اولياء الامور؟</label>
+            <select id="studentOrFather" @bind="studentOrFather" class="form-select">
+                    <option value="student">الطلاب</option>
+                    <option value="father">اولياء الامور</option>
+            </select>
+        </div>
+    }
+    else if (sendOption == "division")
+    {
+        <div class="mb-3">
+            <label for="certificateSelect" class="form-label">اختار شهادة:</label>
+            <select id="certificateSelect" @bind="selectedCertificateId" class="form-select">
+                <option value="">--اختار شهادة--</option>
+                @foreach (var certificate in certificates)
+                {
+                    <option value="@certificate.Id">@certificate.Name</option>
+                }
+            </select>
+        </div>
+
+        @if (selectedCertificateId != Guid.Empty)
+        {
+            <div class="mb-3">
+                <label for="divisionSelect" class="form-label">اختار شعبة:</label>
+                <select id="divisionSelect" @bind="selectedDivisionId" class="form-select">
+                    <option value="">--اختار شعبة--</option>
+                    @foreach (var division in divisions)
+                    {
+                        <option value="@division.Id">@division.Name</option>
+                    }
+                </select>
+            </div>
+        }
+        <div class="mb-3">
+            <label for="studentOrFather" class="form-label">هل تريد الارسال الى الطلاب او اولياء الامور؟</label>
+            <select id="studentOrFather" @bind="studentOrFather" class="form-select">
+                    <option value="student">الطلاب</option>
+                    <option value="father">اولياء الامور</option>
+            </select>
+        </div>
+    }
+    else if(sendOption == "all")
+    {
+        
+    }
+    <div class="mb-3">
+        <label for="newOrTemp" class="form-label">هل تريد ارسال رسالة جديدة او قالب رسالة</label>
+        <select id="newOrTemp" @bind="newOrTemp" class="form-select">
+            <option value="temp">قالب رسالة</option>
+            <option value="new">رسالة جديدة</option>
+        </select>
+    </div>
+    @if (newOrTemp == "new")
+    {
+        <div class="mb-3">
+            <label for="messageInput" class="form-label">الرسالة:</label>
+            <textarea id="messageInput" @bind="messageInput" class="form-control"></textarea>
+        </div>
+    }
+    else
+    {
+        <div class="mb-3">
+            <label for="messageTemp" class="form-label">اختار القالب</label>
+            <select id="messageTemp" @bind="messageTemp" class="form-select">
+                <option value=0>اختر رسالة</option>
+                <option value=1>رسالة الدوام والتأخير</option>
+                <option value=2>طلب ولي الامر</option>
+                <option value=3>التقارير الشهرية</option>
+                <option value=4>تذكير الدفع</option>
+                <option value=5>تذكير الدفع مرة اخرى</option>
+                <option value=6>اشعار الدفع</option>
+            </select>
+        </div>
+        @if (messageTemp==1)
+        {
+            <p>
+                إدارة Sunrise تعلمكم بتفاصيل دوام يوم  <input id="X0Input" @bind="X0Input" class="form-control message-space">  للطالب/ة : <input id="X1Input" @bind="X1Input" class="form-control message-space">.
+                <br />
+                وقت الدخول : <input id="X2Input" @bind="X2Input" class="form-control message-space"> .
+                <br />
+                الحصة : الوقت : المادة : المقرر.
+                <textarea id="X3Input" @bind="X3Input" class="form-control message-text-space"></textarea>
+                انتهاء الدوام الساعة <input id="X4Input" @bind="X4Input" class="form-control message-space">.
+                <br />
+                وأن علامته في مذاكرة <input id="X5Input" @bind="X5Input" class="form-control message-space"> هي <input id="X6Input" @bind="X6Input" class="form-control message-space"> من اصل <input id="X7Input" @bind="X7Input" class="form-control message-space">
+                <br />
+                يرجى عدم التأخر ثانياً
+            </p>
+        }
+        else if (messageTemp == 2)
+        {
+            <p>
+                إدارة Sunrise
+                <br />
+                الأهل الكرام .
+                <br />
+                يرجى من حضرتكم مراجعه الادارة يوم <input id="X0Input" @bind="X0Input" class="form-control message-space">: لمناقشه وضع الطالب/ة : <input id="X1Input" @bind="X1Input" class="form-control message-space">.
+                <br />
+                شاكرين حسن تعاونكم معنا.
+            </p>
+        }
+        else if (messageTemp == 3)
+        {
+            <p>
+                إدارة Sunrise
+                <br />
+                أهالينا الكرام .
+                <br />
+                حرصا منا على ضمان متابعه الأوضاع الدراسية لأبنائنا الطلبة ولمعرفه أدق التفاصيل عن الوضع الدراسي الخاص ب  <input id="X0Input" @bind="X0Input" class="form-control message-space">  .
+                <br />
+                تم توزيع التقارير الشهرية لشهر <input id="X1Input" @bind="X1Input" class="form-control message-space"> .
+                <br />
+                يرجى الإطلاع عليه وإعلامنا بأي ملاحظة للوصول لأهدافنا المنشودة .
+                <br />
+                شاكرين حسن تعاونكم معنا.
+            </p>
+        }
+        else if (messageTemp == 4)
+        {
+            <p>
+                المتابعة المالية لفريق  Sunrise
+                <br />
+                تذكر بضرورة تسديد القسط الشهري المستحق لشهر <input id="X0Input" @bind="X0Input" class="form-control message-space"> خلال مدة أقصاها <input id="X1Input" @bind="X1Input" class="form-control message-space"> أيام.
+                <br />
+                يرجى عدم التأخر والإحراج.
+            </p>
+        }
+        else if (messageTemp == 5)
+        {
+            <p>
+                المتابعة المالية لفريق  Sunrise
+                <br />
+                أهلنا الكرام نذكركم مره اخرى بضرورة دفع القسط الشهري لشهر <input id="X0Input" @bind="X0Input" class="form-control message-space">.
+                <br />
+                بسبب التزاماتنا المالية.
+                <br />
+                يرجى تفهمكم ذلك وعدم الإحراج.
+            </p>
+        }
+        else if (messageTemp == 6)
+        {
+            <p>
+                المتابعة المالية لفريق  Sunrise
+                <br />
+                تم تسديد مبلغ قدره <input id="X0Input" @bind="X0Input" class="form-control message-space">.
+                <br />
+                المبلغ المتبقي <input id="X1Input" @bind="X1Input" class="form-control message-space">
+                <br />
+                شاكرين حسن التزامهم 
+            </p>
+        }
+    }
+
+    <button @onclick="SendMessage" class="btn btn-primary">ارسال الرسالة</button>
+}
+else
+{
+    <h1>الرجاء مسح رمز ال QR للاستمرار</h1>
+    <button @onclick="StartService" class="btn btn-primary">ربط حساب الواتساب</button>
+}
+
+@code {
+    private bool isReady = false;
+    private bool isChecking = true;
+    private string sendOption = "single";
+    private string studentOrFather = "student";
+    private Guid selectedStudentId;
+    private Guid _selectedCertificateId;
+    private Guid selectedDivisionId;
+    private string newOrTemp = "temp";
+    private int messageTemp;
+    private string messageInput = "";
+    private string sendStatus = "";
+    private List<StudentDto> students = new();
+    private List<CertificateDto> certificates = new();
+    private List<DivisionDto> divisions = new();
+    private string X0Input;
+    private string X1Input;
+    private string X2Input;
+    private string X3Input;
+    private string X4Input;
+    private string X5Input;
+    private string X6Input;
+    private string X7Input;
+    private string newMessage;
+    private List<string> messageTemplates = new()
+    {
+        "إدارة Sunrise تعلمكم بتفاصيل دوام يوم _X0_ للطالب/ة : X1.\nوقت الدخول : X2 .\nالحصة : الوقت : المادة : المقرر.\nX3\nانتهاء الدوام الساعة X4.\nوأن علامته في مذاكرة X5 هي X6 من اصل X7\n يرجى عدم التأخر ثانياً ",
+        "إدارة Sunrise \nالأهل الكرام .\nيرجى من حضرتكم مراجعه الادارة يوم X0: لمناقشه وضع الطالب/ة : X1.\n شاكرين حسن تعاونكم معنا.",
+        "إدارة Sunrise \nأهالينا الكرام .\n حرصا منا على ضمان متابعه الأوضاع الدراسية لأبنائنا الطلبة ولمعرفه أدق التفاصيل عن الوضع الدراسي الخاص ب _X0_ .\nتم توزيع التقارير الشهرية لشهر X1 .\nيرجى الإطلاع عليه وإعلامنا بأي ملاحظة للوصول لأهدافنا المنشودة .\nشاكرين حسن تعاونكم معنا.",
+        "المتابعة المالية لفريق  Sunrise \nتذكر بضرورة تسديد القسط الشهري المستحق لشهر X0 خلال مدة أقصاها X1 أيام.\nيرجى عدم التأخر والإحراج.",
+        "المتابعة المالية لفريق  Sunrise \n أهلنا الكرام نذكركم مره اخرى بضرورة دفع القسط الشهري لشهر X0.\nبسبب التزاماتنا المالية.\nيرجى تفهمكم ذلك وعدم الإحراج.",
+        "المتابعة المالية لفريق  Sunrise \n تم تسديد مبلغ قدره X0.\nالمبلغ المتبقي X1\nشاكرين حسن التزامهم "
+    };
+    public Guid selectedCertificateId
+    {
+        get => _selectedCertificateId;
+        set
+        {
+            if (_selectedCertificateId != value)
+            {
+                _selectedCertificateId = value;
+                LoadDivisions();
+            }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        isChecking = false;
+        await LoadStudents();
+        await LoadCertificates();
+    }
+
+    private async Task LoadStudents()
+    {
+        var response = await dataService.GetAllStudents();
+        if (response.StatusCode == Requests_Status.Ok)
+        {
+            students = response.Data.ToObj<GetAllStudentsWithDivisionResponse>().students;
+        }
+    }
+
+    private async Task LoadCertificates()
+    {
+        var response = await dataService.GetAllCertificates();
+        if (response.StatusCode == Requests_Status.Ok)
+        {
+            certificates = response.Data.ToObj<GetAllCertificatesResponse>().certificates;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadDivisions()
+    {
+        if (_selectedCertificateId != Guid.Empty)
+        {
+            var response = await dataService.GetAllDivisions(selectedCertificateId);
+            if (response.StatusCode == Requests_Status.Ok)
+            {
+                divisions = response.Data.ToObj<GetAllDivisionsResponse>().divisions;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private async Task StartService()
+    {
+        isChecking = true;
+        StateHasChanged();
+        isReady = await messaging.IsReadyToRun();
+        isChecking = false;
+    }
+
+    private async Task SendMessage()
+    {
+        List<string> recipients = new();
+        if (sendOption == "single")
+        {
+            var student = students.FirstOrDefault(s => s.Id == selectedStudentId);
+            if (student != null)
+            {
+                if (studentOrFather == "student")
+                {
+                    recipients.Add(student.Phone);
+                }
+                else
+                {
+                    if(student.DefaultParentPhonIsFather)
+                    {
+                        recipients.Add(student.Father_Phone);
+                    }
+                    else
+                    {
+                        recipients.Add(student.Mother_Phone);
+
+                    }
+                }
+            }
+        }
+        else if (sendOption == "division")
+        {
+            var response = await dataService.GetAllStudentsByDivisionId(selectedDivisionId);
+            if (response.StatusCode == Requests_Status.Ok)
+            {
+
+                var divisionStudents = response.Data.ToObj<GetAllStudentsByDivisionIdResponse>().students;
+                foreach(var student in divisionStudents)
+                {
+                    var divisionStudentsStudentNumberResponse = await dataService.GetStudentById(student.Id);
+                    var dtStudent = divisionStudentsStudentNumberResponse.Data.ToObj<GetStudentByIdResponse>().student;
+                    if (divisionStudentsStudentNumberResponse.StatusCode == Requests_Status.Ok)
+                    {
+
+                        if (studentOrFather == "student")
+                        {
+                            recipients.Add(dtStudent.Phone);
+                        }
+                        else
+                        {
+                            if (dtStudent.DefaultParentPhonIsFather)
+                            {
+                                recipients.Add(dtStudent.Father_Phone);
+                            }
+                            else
+                            {
+                                recipients.Add(dtStudent.Mother_Phone);
+
+                            }
+                        }
+                    }
+                }
+            }
+            
+        }
+        else if(sendOption == "all")
+        {
+            var response = await dataService.GetAllPhoneNumbers();
+            if (response.StatusCode == Requests_Status.Ok)
+            {
+
+                var phoneNumbers = response.Data.ToObj<GetAllPhoneNumbersResponse>().PhoneNumbers;
+                foreach(var number in phoneNumbers)
+                {
+                    recipients.Add(number);
+                }
+            }
+        }
+        if (newOrTemp == "temp")
+        {
+            if (messageTemp == 1)
+            {
+
+                messageInput = messageTemplates[messageTemp-1];
+                messageInput = messageInput.Replace("X0", X0Input);
+                messageInput = messageInput.Replace("X1", X1Input);
+                messageInput = messageInput.Replace("X2", X2Input);
+                messageInput = messageInput.Replace("X3", X3Input);
+                messageInput = messageInput.Replace("X4", X4Input);
+                messageInput = messageInput.Replace("X5", X5Input);
+                messageInput = messageInput.Replace("X6", X6Input);
+                messageInput = messageInput.Replace("X7", X7Input);
+            }
+            else if (messageTemp == 2)
+            {
+
+                messageInput = messageTemplates[messageTemp - 1];
+                messageInput = messageInput.Replace("X0", X0Input);
+                messageInput = messageInput.Replace("X1", X1Input);
+            }
+            else if (messageTemp == 3)
+            {
+
+                messageInput = messageTemplates[messageTemp - 1];
+                messageInput = messageInput.Replace("X0", X0Input);
+                messageInput = messageInput.Replace("X1", X1Input);
+            }
+            else if (messageTemp == 4)
+            {
+
+                messageInput = messageTemplates[messageTemp - 1];
+                messageInput = messageInput.Replace("X0", X0Input);
+                messageInput = messageInput.Replace("X1", X1Input);
+            }
+            else if (messageTemp == 5)
+            {
+
+                messageInput = messageTemplates[messageTemp - 1];
+                messageInput = messageInput.Replace("X0", X0Input);
+            }
+            else if (messageTemp == 6)
+            {
+
+                messageInput = messageTemplates[messageTemp - 1];
+                messageInput = messageInput.Replace("X0", X0Input);
+                messageInput = messageInput.Replace("X1", X1Input);
+            }
+
+        }
+        if (recipients.Count > 0)
+        {
+            sendStatus = await messaging.SendMessageToList(recipients, messageInput);
+            ToastService.ShowSuccess(sendStatus);
+
+        }
+        else
+        {
+            sendStatus = "لم يتم العثور على احد";
+            ToastService.ShowError(sendStatus);
+        }
+    }
+}

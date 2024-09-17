@@ -1,0 +1,61 @@
+﻿@inject ILocalStorageService LocalStorage
+@inject SessionService SessionService
+@inject NavigationManager Navigation
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">معهد</a>
+    </div>
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="bi bi-bar-chart-fill nav-icon" aria-hidden="true"></span> الاحصائيات
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="institute-management">
+                <span class="bi bi-building-fill nav-icon" aria-hidden="true"></span> ادارة المعهد
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="students-management">
+                <span class="bi bi-person-fill nav-icon" aria-hidden="true"></span> ادارة الطلاب
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="daily-tasks">
+                <span class="bi bi-list-task nav-icon" aria-hidden="true"></span> المهام اليومية
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="users-management">
+                <span class="bi bi-person-fill nav-icon" aria-hidden="true"></span> ادارة المستخدمين
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="whatsapp">
+                <span class="bi bi-whatsapp nav-icon" aria-hidden="true"></span> رسائل الواتساب
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" @onclick="logout" role="button">
+                <span class="bi bi-person-fill nav-icon" aria-hidden="true"></span> تسجيل الخروج
+            </NavLink>
+        </div>
+    </nav>
+</div>
+@code 
+{
+
+    private async Task logout()
+    {
+        await SessionService.ClearUserIdAsync();
+        Navigation.NavigateTo("/signin");
+        Navigation.Refresh();
+    }
+
+}

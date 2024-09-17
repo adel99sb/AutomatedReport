@@ -1,0 +1,301 @@
+﻿@page "/tests/{certificateId:guid}/{divisionId:guid}"
+@inject DataService DataService
+@inject NavigationManager NavigationManager
+@inject IToastService ToastService
+
+<h3>الاختبارات</h3>
+
+<div class="container mt-4">
+ 
+    <button class="btn btn-primary mb-3" @onclick="ShowAddTestModal">اضافة اختبار جديد</button>
+
+    @if (isLoading)
+    {
+        <p>جاري التحميل...</p>
+    }
+
+    else if (tests == null || !tests.Any())
+    {
+        <p>لا يوجد اختبارات</p>
+    }
+    else
+    {
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>المادة</th>
+                    <th>الوصف</th>
+                    <th>التاريخ والوقت</th>
+                    <th>العلامة الكلية</th>
+                    <th>هل انتهى</th>
+                    <th>اجراءات</th>
+                </tr>
+            </thead>
+            <tbody>
+                    @foreach (var test in tests)
+                    {
+                        <tr>
+                            <td>@test.SubjectName</td>
+                            <td>@test.Description</td>
+                            <td>@test.DateTime</td>
+                            <td>@test.TotalMark</td>
+                            <td>@(test.IsDone ? "نعم" : "لا")</td>
+                            <td>
+                                <button class="btn btn-warning btn-sm" @onclick="() => ShowEditTestModal(test)">تعديل</button>
+                                <button class="btn btn-danger btn-sm" @onclick="() => ConfirmDeleteTest(test.Id)">حذف</button>
+                            <button class="btn btn-success btn-sm" @onclick="() => MarkTestAsDone(test.Id)" disabled="@test.IsDone">وضع علامة منتهي</button>
+                            </td>
+                        </tr>
+                    }
+                
+            </tbody>
+        </table>
+    }
+
+    <!-- Add Test Modal -->
+    <div class="@($"modal fade {(showAddModal ? "show d-block" : "")}")" tabindex="-1" role="dialog" style="display: @(showAddModal ? "block" : "none")">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">اضافة اختبار جديد</h5>
+                    <button type="button" class="close" @onclick="CloseAddModal">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="newTestSubject">المادة</label>
+                        <select class="form-control" id="newTestSubject" @bind="newTest.SubjectId">
+                            <option value="">اختار المادة</option>
+                            @foreach (var subject in subjects)
+                            {
+                                <option value="@subject.Id">@subject.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="newTestDescription">الوصف</label>
+                        <input type="text" class="form-control" id="newTestDescription" @bind="newTest.Description">
+                    </div>
+                    <div class="form-group">
+                        <label for="newTestDateTime">التاريخ والوقت</label>
+                        <input type="datetime-local" class="form-control" id="newTestDateTime" @bind="newTest.DateTime">
+                    </div>
+                    <div class="form-group">
+                        <label for="newTestTotalMark">العلامة الكلية</label>
+                        <input type="number" class="form-control" id="newTestTotalMark" @bind="newTest.TotalMark">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseAddModal">اغلاق</button>
+                    <button type="button" class="btn btn-primary" @onclick="AddTest">اضافة</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Test Modal -->
+    <div class="@($"modal fade {(showEditModal ? "show d-block" : "")}")" tabindex="-1" role="dialog" style="display: @(showEditModal ? "block" : "none")">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">تعديل الاختبار</h5>
+                    <button type="button" class="close" @onclick="CloseEditModal">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="editTestSubject">المادة</label>
+                        <select class="form-control" id="editTestSubject" @bind="editTest.SubjectId">
+                            <option value="">اختار المادة</option>
+                            @foreach (var subject in subjects)
+                            {
+                                <option value="@subject.Id">@subject.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="editTestDescription">الوصف</label>
+                        <input type="text" class="form-control" id="editTestDescription" @bind="editTest.Description">
+                    </div>
+                    <div class="form-group">
+                        <label for="editTestDateTime">التاريخ والوقت</label>
+                        <input type="datetime-local" class="form-control" id="editTestDateTime" @bind="editTest.DateTime">
+                    </div>
+                    <div class="form-group">
+                        <label for="editTestTotalMark">العلامة الكلية</label>
+                        <input type="number" class="form-control" id="editTestTotalMark" @bind="editTest.TotalMark">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseEditModal">اغلاق</button>
+                    <button type="button" class="btn btn-primary" @onclick="EditTest">حفظ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+@code {
+    [Parameter] public Guid CertificateId { get; set; }
+    [Parameter] public Guid DivisionId { get; set; }
+    private List<Test> tests;
+    private Test newTest = new Test();
+    private Test editTest = new Test();
+    private bool isLoading = true;
+    private bool showAddModal = false;
+    private List<SubjectDto> subjects = new List<SubjectDto>();
+    private bool showEditModal = false;
+    private Guid selectedSubjectId;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTests();
+        LoadSubjects();
+    }
+
+    private async Task LoadTests()
+    {
+        var response = await DataService.GetAllTests(DivisionId);
+        if (response.StatusCode == Requests_Status.Ok)
+        {
+            var testDtos = response.Data.ToObj<GetAllTestsResponse>().tests;
+            tests = testDtos.Select(dto => new Test
+                    {
+                        Id = dto.Id,
+                        Description = dto.Description,
+                        IsDone = dto.IsDone,
+                        SubjectName = dto.Subject,
+                        DateTime = dto.DateTime,
+                        TotalMark = dto.TotalMark
+                    }).ToList();
+            isLoading = false;
+        }
+        else
+        {
+            isLoading = false;
+            ToastService.ShowError(response.Message);
+        }
+    }
+
+    private async Task LoadSubjects()
+    {
+        var response = await DataService.GetAllSubjects(CertificateId);
+        if (response != null && response.StatusCode == Requests_Status.Ok)
+        {
+            subjects = response.Data.ToObj<GetAllSubjectsResponse>().subjects;
+        }
+        else
+        {
+            ToastService.ShowError(response.Message);
+        }
+
+    }
+
+    private void ShowAddTestModal()
+    {
+        showAddModal = true;
+    }
+
+    private void CloseAddModal()
+    {
+        showAddModal = false;
+    }
+
+    private async Task AddTest()
+    {
+        var response = await DataService.AddTest(new AddTestRequste
+            {
+                Description = newTest.Description,
+                DateTime = newTest.DateTime,
+                TotalMark = newTest.TotalMark,
+                SubjectId = newTest.SubjectId,
+                DivisionId = DivisionId
+            });
+
+        if (response.StatusCode == Requests_Status.Accepted)
+        {
+            ToastService.ShowSuccess("تم اضافة الاختبار بنجاح");
+            await LoadTests();
+            CloseAddModal();
+        }
+        else
+        {
+            ToastService.ShowError("حدث خطأ ما");
+        }
+    }
+
+    private void ShowEditTestModal(Test test)
+    {
+        editTest = test;
+        showEditModal = true;
+
+    }
+
+    private void CloseEditModal()
+    {
+        showEditModal = false;
+    }
+
+    private async Task EditTest()
+    {
+        var response = await DataService.EditeTest(new EditeTestRequste
+            {
+                Id = editTest.Id,
+                Description = editTest.Description,
+                DateTime = editTest.DateTime,
+                TotalMark = editTest.TotalMark,
+                SubjectId = editTest.SubjectId,
+                IsDone = editTest.IsDone,
+                DivisionId = DivisionId
+            });
+
+        if (response.StatusCode == Requests_Status.Accepted)
+        {
+            ToastService.ShowSuccess("تم تعديل الاختبار بنجاح");
+            await LoadTests();
+            CloseEditModal();
+        }
+        else
+        {
+            ToastService.ShowError("حدث خطأ ما");
+        }
+    }
+
+    private async Task ConfirmDeleteTest(Guid testId)
+    {
+        await DeleteTest(testId);
+    }
+
+    private async Task DeleteTest(Guid testId)
+    {
+        var response = await DataService.DeleteTest(testId);
+        if (response.StatusCode == Requests_Status.Accepted)
+        {
+            ToastService.ShowSuccess("تم حذف الاختبار بنجاح");
+            await LoadTests();
+        }
+        else
+        {
+            ToastService.ShowError("حدث خطأ ما");
+        }
+    }
+
+    private async Task MarkTestAsDone(Guid testId)
+    {
+        var response = await DataService.MarkTestAsDone(testId);
+
+        if (response.StatusCode == Requests_Status.Accepted)
+        {
+            ToastService.ShowSuccess("تم تحديث الاختبار بنجاح");
+            await LoadTests();
+            CloseEditModal();
+        }
+        else
+        {
+            ToastService.ShowError("حدث خطأ ما");
+        }
+    }
+}

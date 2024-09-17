@@ -1,0 +1,115 @@
+﻿@page "/manage-grades/{certificateId:guid}/{divisionId:guid}"
+@inject DataService DataService
+@inject Blazored.Toast.Services.IToastService ToastService
+@inject NavigationManager NavigationManager
+
+<h3>ادراة العلامات</h3>
+
+<LinksMenu Links="navLinks" />
+
+<div class="container mt-4">
+
+    @if (isLoading)
+    {
+        <p>جاري التحميل...</p>
+    }
+
+    else if (tests == null || !tests.Any())
+    {
+        <p>لا يوجد اختبارات</p>
+    }
+    else
+    {
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>المادة</th>
+                    <th>الوصف</th>
+                    <th>التاريخ والوقت</th>
+                    <th>العلامة الكلية</th>
+                    <th>هل انتهى</th>
+                    <th>اجراءات</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var test in tests)
+                {
+                    <tr>
+                        <td>@test.Subject</td>
+                        <td>@test.Description</td>
+                        <td>@test.DateTime</td>
+                        <td>@test.TotalMark</td>
+                        <td>@(test.IsDone ? "نعم" : "لا")</td>
+                        <td>
+                            <button class="btn btn-success btn-sm" @onclick="() => MarkTestAsDone(test.Id)" disabled="@test.IsDone">وضع علامة منتهي</button>
+                            <button class="btn btn-primary btn-sm" @onclick="() => EditMarks(test.Id)" disabled="@(!test.IsDone)">ادارة علامات هذا الاختبار</button>
+                        </td>
+                    </tr>
+                }
+
+            </tbody>
+        </table>
+    }
+
+</div>
+
+@code {
+    [Parameter] public Guid divisionId { get; set; }
+    [Parameter] public Guid certificateId { get; set; }
+    private List<LinkItem> navLinks;
+    private bool isLoading = false;
+    private List<TestDto> tests;
+
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        isLoading = true;
+        navLinks = new List<LinkItem>
+        {
+            new LinkItem { Name = "ادارة المقرر المعطى", Url = $"/subjects-management/{certificateId}/{divisionId}", IsActive = false },
+            new LinkItem { Name = "ادارة العلامات", Url = $"/manage-grades/{certificateId}/{divisionId}", IsActive = true },
+            new LinkItem { Name = "ادارة التفقد", Url = $"/manage-attendance/{certificateId}/{divisionId}", IsActive = false }
+        };
+
+        await LoadTests(divisionId);
+    }
+
+    private async Task LoadTests(Guid DivisionId)
+    {
+        isLoading = true;
+
+        var response = await DataService.GetAllTests(DivisionId);
+        if (response.StatusCode == Requests_Status.Ok)
+        {
+            tests = response.Data.ToObj<GetAllTestsResponse>().tests;
+        }
+        else
+        {
+            ToastService.ShowError("فشل في تحميل الاختبارات.");
+        }
+
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    private async Task MarkTestAsDone(Guid testId)
+    {
+        var response = await DataService.MarkTestAsDone(testId);
+
+        if (response.StatusCode == Requests_Status.Accepted)
+        {
+            ToastService.ShowSuccess("تم تحديث الاختبار بنجاح");
+            await LoadTests(divisionId);
+        }
+        else
+        {
+            ToastService.ShowError("حدث خطأ ما");
+        }
+    }
+    private void EditMarks(Guid testId)
+    {
+        NavigationManager.NavigateTo($"/manage-test-grades/{divisionId}/{certificateId}/{testId}");
+    }
+}

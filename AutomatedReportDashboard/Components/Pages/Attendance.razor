@@ -1,0 +1,157 @@
+﻿@page "/manage-attendance/{certificateId:guid}/{divisionId:guid}"
+@inject DataService DataService
+@inject Blazored.Toast.Services.IToastService ToastService
+
+<h3 class="text-center">ادارة التفقد</h3>
+
+<LinksMenu Links="navLinks" />
+
+<div class="container mt-4">
+
+    <!-- Date Picker for selecting the date -->
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <label for="attendanceDate">اختر التاريخ:</label>
+            <input type="date" id="attendanceDate" class="form-control" @bind="selectedDate" />
+            <button class="btn btn-primary" @onclick="LoadAttendance">ابحث</button>
+        </div>
+    </div>
+
+    @if (divisionId != Guid.Empty)
+    {
+        <h3 class="mt-4">معلومات الحضور</h3>
+
+        @if (isLoading)
+        {
+            <p>جاري التحميل...</p>
+        }
+        else if (attendances == null || !attendances.Any())
+        {
+            <p>لا يوجد حضور لعرضه</p>
+        }
+        else
+        {
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>اسم الطالب</th>
+                        @foreach (var attendance in attendances)
+                        {
+                            <th>@attendance.Time - @attendance.SubjectTitle</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var student in GetUniqueStudents())
+                    {
+                        <tr>
+                            <td>@student.First_Name @student.Last_Name</td>
+                            @foreach (var attendance in attendances)
+                            {
+                                var studentAttendance = attendance.StudentAttendancs.FirstOrDefault(a => a.StudentId == student.Id);
+                                <td>
+                                    @if (studentAttendance != null)
+                                    {
+                                        <input type="checkbox" @bind="studentAttendance.IsAttend" />
+                                    }
+                                </td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            <!-- Save Button -->
+            <button class="btn btn-success mt-3" @onclick="Save">حفظ</button>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public Guid divisionId { get; set; }
+    [Parameter] public Guid certificateId { get; set; }
+    private List<LinkItem> navLinks;
+    private List<GetAttendanceDto> attendances = new List<GetAttendanceDto>();
+    private bool isLoading = false;
+    private DateTime selectedDate = DateTime.Now;
+
+    protected override void OnInitialized()
+    {
+        navLinks = new List<LinkItem>
+        {
+            new LinkItem { Name = "ادارة المقرر المعطى", Url = $"/subjects-management/{certificateId}/{divisionId}", IsActive = false },
+            new LinkItem { Name = "ادارة العلامات", Url = $"/manage-grades/{certificateId}/{divisionId}", IsActive = false },
+            new LinkItem { Name = "ادارة التفقد", Url = $"/manage-attendance/{certificateId}/{divisionId}", IsActive = true }
+        };
+    }
+
+    private async Task LoadAttendance()
+    {
+        isLoading = true;
+
+        var response = await DataService.GetAllAttendanceByDate(divisionId, selectedDate.ToString("yyyy-MM-dd"));
+        if (response.StatusCode == Requests_Status.Ok)
+        {
+            attendances = response.Data.ToObj<GetAttendanceByDateResponse>().attendances;
+        }
+        else if (response.StatusCode == Requests_Status.NotFound)
+        {
+            ToastService.ShowError("لا يوجد حضور لعرضه في هذا التاريخ");
+            attendances = new List<GetAttendanceDto>();
+        }
+        else
+        {
+            ToastService.ShowError("فشل في تحميل بيانات الحضور.");
+            attendances = new List<GetAttendanceDto>();
+        }
+
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    private List<StudentDto> GetUniqueStudents()
+    {
+        var uniqueStudents = new List<StudentDto>();
+
+        foreach (var attendance in attendances)
+        {
+            foreach (var student in attendance.StudentAttendancs)
+            {
+                if (!uniqueStudents.Any(s => s.Id == student.StudentId))
+                {
+                    uniqueStudents.Add(new StudentDto
+                        {
+                            Id = student.StudentId,
+                            First_Name = student.FirstName,
+                            Last_Name = student.LastName
+                        });
+                }
+            }
+        }
+
+        return uniqueStudents;
+    }
+
+    private async Task Save()
+    {
+        var attendanceList = attendances.SelectMany(attendance => attendance.StudentAttendancs.Select(studentAttendance => new AddAttendanceDto
+            {
+                Id = studentAttendance.Id,
+                IsAttend = studentAttendance.IsAttend,
+            })).ToList();
+
+        var response = await DataService.UpdateAttendace(new EditeAttendanceRequste
+            {
+                AttendancesList = attendanceList
+            });
+
+        if (response.StatusCode == Requests_Status.Accepted)
+        {
+            ToastService.ShowSuccess("تم حفظ الحضور بنجاح");
+        }
+        else
+        {
+            ToastService.ShowError("فشل في حفظ الحضور.");
+        }
+    }
+}

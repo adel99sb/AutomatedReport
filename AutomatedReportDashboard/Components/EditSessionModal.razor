@@ -1,0 +1,153 @@
+﻿@namespace MauiApp1.Components
+@inject IJSRuntime JSRuntime
+@inject DataService DataService
+@inject Blazored.Toast.Services.IToastService ToastService
+
+<div class="modal fade" id="editSessionModal" tabindex="-1" aria-labelledby="editSessionModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editSessionModalLabel">تعديل الحصة</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form name="editSession" @onsubmit="HandleValidSubmit">
+
+                    <div class="mb-3">
+                        <label for="ClassId" class="form-label">الوقت</label>
+                        <InputSelect id="ClassId" class="form-control" @bind-Value="newSession.ClassId">
+                            <option value="">اختر...</option>
+                            @foreach (var sessionTime in sessionTimes)
+                            {
+                                <option value="@sessionTime.Id">@sessionTime.Name @sessionTime.From_Time - @sessionTime.To_Time</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="mb-3">
+                        <label for="SubjectId" class="form-label">المادة</label>
+                        <InputSelect id="SubjectId" class="form-control" @bind-Value="editSession.SubjectId">
+                            <option value="">اختر...</option>
+                            @foreach (var Subject in subjects)
+                            {
+                                <option value="@Subject.Id">@Subject.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="mb-3">
+                        <label for="Day" class="form-label">اليوم</label>
+                        <InputSelect id="Day" class="form-control" @bind-Value="newSession.Day">
+                            <option value="">اختر...</option>
+                            @foreach (DayOfWeek day in Enum.GetValues(typeof(DayOfWeek)))
+                            {
+                                @if (day == DayOfWeek.Sunday)
+                                {
+                                    arabicDay = "احد";
+                                }
+                                else if (day == DayOfWeek.Monday)
+                                {
+                                    arabicDay = "اثنين";
+                                }
+                                else if (day == DayOfWeek.Tuesday)
+                                {
+                                    arabicDay = "ثلاثاء";
+                                }
+                                else if (day == DayOfWeek.Wednesday)
+                                {
+                                    arabicDay = "اربعاء";
+                                }
+                                else if (day == DayOfWeek.Thursday)
+                                {
+                                    arabicDay = "خميس";
+                                }
+                                else if (day == DayOfWeek.Friday)
+                                {
+                                    arabicDay = "جمعة";
+                                }
+                                else if (day == DayOfWeek.Saturday)
+                                {
+                                    arabicDay = "سبت";
+                                }
+                                <option value="@day">@arabicDay</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="mb-3">
+                        <label for="HallId" class="form-label">القاعة</label>
+                        <InputSelect id="HallId" class="form-control" @bind-Value="newSession.HallId">
+                            <option value="">اختر...</option>
+                            @foreach (var Hall in halls)
+                            {
+                                <option value="@Hall.id">@Hall.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <button type="submit" class="btn btn-primary">حفظ</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnSessionUpdated { get; set; }
+    [Parameter] public Guid divisionID { get; set; }
+    [Parameter] public Guid certificateID { get; set; }
+    private Session editSession = new Session();
+    private Session newSession = new Session();
+    private string arabicDay;
+    private List<ClassDto> sessionTimes = new List<ClassDto>();
+    private List<SubjectDto> subjects = new List<SubjectDto>();
+    private List<HallDto> halls = new List<HallDto>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var classResponse = await DataService.GetAllClasses();
+        if (classResponse.StatusCode == Requests_Status.Ok)
+        {
+            sessionTimes = classResponse.Data.ToObj<GetAllClassesResponse>().classes.OrderBy(p => p.From_Time).ToList();
+        }
+        var subjectResponse = await DataService.GetAllSubjects(certificateID);
+        if (subjectResponse.StatusCode == Requests_Status.Ok)
+        {
+            subjects = subjectResponse.Data.ToObj<GetAllSubjectsResponse>().subjects;
+        }
+        var HallResponse = await DataService.GetAllHalls();
+        if (HallResponse.StatusCode == Requests_Status.Ok)
+        {
+            halls = HallResponse.Data.ToObj<GetAllHallsResponse>().halls;
+        }
+    }
+
+    public async Task Show(Session session)
+    {
+        editSession = session;
+        StateHasChanged();
+        await JSRuntime.InvokeVoidAsync("modalFunctions.show", "editSessionModal");
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        newSession.DivisionId = divisionID; // Set the division ID
+        var response = await DataService.EditSession(new EditeSessionRequste
+            {
+                Id = editSession.Id,
+                day = newSession.Day,
+                DivisionId = divisionID,
+                HallId = newSession.HallId,
+                SubjectId = editSession.SubjectId,
+                _ClassId = newSession.ClassId
+            });
+
+        if (response.StatusCode == Requests_Status.Accepted)
+        {
+            ToastService.ShowSuccess("تم التعديل بنجاح");
+            await JSRuntime.InvokeVoidAsync("modalFunctions.hide", "editSessionModal");
+            await OnSessionUpdated.InvokeAsync();
+        }
+        else
+        {
+            ToastService.ShowError("حدث خطأ ما");
+        }
+    }
+
+}

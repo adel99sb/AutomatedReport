@@ -1,0 +1,67 @@
+﻿@page "/users-management"
+@inject DataService DataService
+@inject Blazored.Toast.Services.IToastService ToastService
+@using MauiApp1.Components.Layout
+
+<h3>ادراة المستخدمين</h3>
+@if (isLoading)
+{
+    <p>جاري التحميل</p>
+}
+else
+{
+    <div class="form-group">
+        <label for="userType">الحساب</label>
+        <select id="userType" class="form-control" @bind="UserId">
+            <option value="">اختر مستخدم</option>
+            @foreach (var user in users)
+            {
+                <option value="@user.Id">@user.Type</option>
+
+            }
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="password">كلمة السر الجديدة</label>
+        <input type="password" id="password" class="form-control" @bind="Password" />
+    </div>
+    <button class="btn btn-primary" @onclick="edit">تعديل</button>
+}
+
+
+@code {
+    private string UserId { get; set; }
+    private string Password { get; set; }
+    private bool isLoading = true;
+    private List<UserDto> users { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await loadTypes();
+    }
+    private async Task loadTypes()
+    {
+        isLoading = true;
+        var response = await DataService.GetAllUsers();
+        if (response.StatusCode == Requests_Status.Ok)
+        {
+            var usersDto = response.Data.ToObj<GetAllUsersResponse>().users;
+            users = usersDto.ToList();
+        }
+        isLoading = false;
+    }
+    private async Task edit()
+    {
+        var response = await DataService.EditePassword(UserId, Password);
+
+        if (response != null && response.StatusCode == Requests_Status.Accepted)
+        {
+            ToastService.ShowSuccess("تم التعديل بنجاح");
+        }
+        else
+        {
+            ToastService.ShowError("حدث خطأ ما");
+        }
+    }
+}

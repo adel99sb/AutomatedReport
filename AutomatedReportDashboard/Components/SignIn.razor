@@ -1,0 +1,70 @@
+﻿@page "/signin"
+@inject DataService DataService
+@inject NavigationManager Navigation
+@inject ILocalStorageService LocalStorage
+@inject SessionService SessionService
+@inject Blazored.Toast.Services.IToastService ToastService
+@using MauiApp1.Components.Layout
+
+<h3>Sign In</h3>
+@if (isLoading)
+    {
+        <p>جاري التحميل</p>
+    }
+    else
+    {
+<div class="form-group">
+    <label for="userType">نوع المستخدم</label>
+    <select id="userType" class="form-control" @bind="UserId">
+            @foreach(var user in users)
+            {
+                <option value="@user.Id">@user.Type</option>
+                
+            }
+    </select>
+</div>
+
+<div class="form-group">
+    <label for="password">كلمة السر</label>
+    <input type="password" id="password" class="form-control" @bind="Password" />
+</div>
+    }
+<button class="btn btn-primary" @onclick="Sign">تسجيل الدخول</button>
+
+@code {
+    private Guid UserId { get; set; }
+    private string Password { get; set; }
+    private bool isLoading = true;
+    private List<UserDto> users { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await loadTypes();
+    }
+    private async Task loadTypes()
+    {
+        isLoading = true;
+        var response = await DataService.GetAllUsers();
+        if (response.StatusCode == Requests_Status.Ok)
+        {
+            var usersDto = response.Data.ToObj<GetAllUsersResponse>().users;
+            users = usersDto.ToList();
+        }
+        isLoading = false;
+    }
+    private async Task Sign()
+    {
+        var response = await DataService.Login(UserId, Password);
+
+        if (response != null && response.StatusCode == Requests_Status.Ok)
+        {
+            await SessionService.SetUserIdAsync(UserId.ToString());
+            Navigation.NavigateTo("/");
+            Navigation.Refresh();
+        }
+        else
+        {
+            ToastService.ShowError("خطأ");
+        }
+    }
+}

@@ -1,0 +1,115 @@
+﻿@page "/daily-tasks"
+@inject DataService DataService
+@inject Blazored.Toast.Services.IToastService ToastService
+@inject NavigationManager NavigationManager
+
+<h3 class="text-center">المهمام اليومية</h3>
+
+<div class="container mt-4">
+    <!-- Step 1: Certificate Selection -->
+    <h3>اختر الشهادة</h3>
+    <select class="form-control" @bind="selectedCertificateId">
+        <option value="">اختر الشهادة</option>
+        @foreach (var certificate in certificates)
+        {
+            <option value="@certificate.Id">@certificate.Name</option>
+        }
+    </select>
+
+    <!-- Step 2: Division Selection -->
+    @if (selectedCertificateId != Guid.Empty)
+    {
+        <h3 class="mt-4">اختر الشعبة</h3>
+        <select class="form-control" @bind="selectedDivisionId">
+            <option value="">اختر الشعبة</option>
+            @foreach (var division in divisions)
+            {
+                <option value="@division.Id">@division.Name</option>
+            }
+        </select>
+    }
+</div>
+
+@code {
+    private List<CertificateDto> certificates = new List<CertificateDto>();
+    private List<DivisionDto> divisions = new List<DivisionDto>();
+    private bool isLoading = false;
+    private Guid _selectedCertificateId;
+    private Guid _selectedDivisionId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCertificates();
+    }
+
+    public Guid selectedCertificateId
+    {
+        get => _selectedCertificateId;
+        set
+        {
+            if (_selectedCertificateId != value)
+            {
+                _selectedCertificateId = value;
+                OnCertificateChange(_selectedCertificateId);
+            }
+        }
+    }
+
+    public Guid selectedDivisionId
+    {
+        get => _selectedDivisionId;
+        set
+        {
+            if (_selectedDivisionId != value)
+            {
+                _selectedDivisionId = value;
+                OnDivisionChange(_selectedDivisionId);
+            }
+        }
+    }
+
+    private async Task LoadCertificates()
+    {
+        isLoading = true;
+        var response = await DataService.GetAllCertificates();
+        if (response.StatusCode == Requests_Status.Ok)
+        {
+            certificates = response.Data.ToObj<GetAllCertificatesResponse>().certificates;
+        }
+        isLoading = false;
+    }
+
+    private async Task LoadDivisions(Guid certificateId)
+    {
+        isLoading = true;
+        var response = await DataService.GetAllDivisions(certificateId);
+        if (response.StatusCode == Requests_Status.Ok)
+        {
+            divisions = response.Data.ToObj<GetAllDivisionsResponse>().divisions;
+        }
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    private async Task OnCertificateChange(Guid e)
+    {
+        selectedCertificateId = e;
+        selectedDivisionId = Guid.Empty;
+        divisions.Clear();
+
+        if (selectedCertificateId != Guid.Empty)
+        {
+            await LoadDivisions(selectedCertificateId);
+        }
+    }
+
+    private async Task OnDivisionChange(Guid e)
+    {
+        selectedDivisionId = e;
+
+        if (selectedDivisionId != Guid.Empty)
+        {
+            NavigationManager.NavigateTo($"/subjects-management/{selectedCertificateId}/{selectedDivisionId}");
+        }
+    }
+}
